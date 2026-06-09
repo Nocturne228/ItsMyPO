@@ -45,6 +45,7 @@ let imageResizeOriginalHeight = 0;
 let imageResizeLockRatio = false;
 let viewMode = "list";
 let lastBrowseData = null;
+let rootPath = "";
 
 // =====================================================
 // Helpers
@@ -142,6 +143,16 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+}
+
+function normalizePath(path) {
+    const value = String(path || "");
+    if (value === "/") return "/";
+    return value.replace(/\/+$/, "");
+}
+
+function isRootPath(path) {
+    return normalizePath(path) === normalizePath(rootPath);
 }
 
 function setButtonsDisabled(disabled) {
@@ -1233,7 +1244,6 @@ async function navigateTo(path) {
     currentPath = data.path;
     selectedPath = "";
     selectedType = "";
-    document.getElementById("pathInput").value = data.path;
     updateBreadcrumb(data.path);
     updateSelectionInfo();
     clearPdfPreview();
@@ -1260,7 +1270,7 @@ function renderFileTree(data) {
 
     if (viewMode === "card") {
         // Parent directory
-        if (data.path !== "/" && data.path.length > 1) {
+        if (!isRootPath(data.path) && data.path !== "/" && data.path.length > 1) {
             html += `<div class="card-item parent-dir" data-path="${escapeHtml(parentPath)}" data-type="dir">
                 <div class="card-thumb"><span class="card-icon">⬆</span></div>
                 <div class="card-info"><div class="card-name">..</div></div>
@@ -1298,7 +1308,7 @@ function renderFileTree(data) {
         }
     } else {
         // Parent directory link
-        if (data.path !== "/" && data.path.length > 1) {
+        if (!isRootPath(data.path) && data.path !== "/" && data.path.length > 1) {
             html += `<div class="tree-item parent-dir" data-path="${escapeHtml(parentPath)}" data-type="dir">
                 <span class="icon">⬆</span>
                 <span class="name">..</span>
@@ -1379,14 +1389,26 @@ function toggleViewMode() {
 }
 
 function updateBreadcrumb(path) {
-    const parts = path.split("/").filter(Boolean);
     const el = document.getElementById("breadcrumb");
-    let html = '<span data-path="/">/</span>';
-    let accumulated = "";
+    const normalizedRoot = normalizePath(rootPath);
+    const normalizedPath = normalizePath(path);
+    let html = `<span data-path="${escapeHtml(rootPath)}">根目录</span>`;
+    let parts = [];
+
+    if (normalizedPath !== normalizedRoot && normalizedRoot === "/") {
+        parts = normalizedPath.split("/").filter(Boolean);
+    } else if (normalizedPath !== normalizedRoot && normalizedPath.startsWith(`${normalizedRoot}/`)) {
+        parts = normalizedPath.slice(normalizedRoot.length + 1).split("/").filter(Boolean);
+    } else if (normalizedPath !== normalizedRoot) {
+        parts = [normalizedPath.split("/").filter(Boolean).pop() || normalizedPath];
+    }
+
+    let accumulated = normalizedRoot === "/" ? "" : normalizedRoot;
     for (const part of parts) {
-        accumulated += "/" + part;
+        accumulated = `${accumulated}/${part}`;
         html += `<span data-path="${escapeHtml(accumulated)}">${escapeHtml(part)}</span>`;
     }
+
     el.innerHTML = html;
     el.querySelectorAll("span").forEach((span) => {
         span.addEventListener("click", () => navigateTo(span.dataset.path));
@@ -1598,45 +1620,15 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("[Debug] DOMContentLoaded fired");
 
     // Initial navigation
-    const homePath = document.getElementById("pathInput").value;
-    console.log("[Debug] homePath =", homePath);
+    rootPath = document.querySelector(".sidebar").dataset.root || "";
+    console.log("[Debug] rootPath =", rootPath);
     document.querySelector(".content").classList.add("hide-log");
-    navigateTo(homePath);
+    navigateTo(rootPath);
     console.log("[Debug] navigateTo called");
 
-    // Path input
-    document.getElementById("goBtn").addEventListener("click", () => {
-        navigateTo(document.getElementById("pathInput").value);
-    });
-    document.getElementById("pathInput").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") navigateTo(e.target.value);
-    });
-
-    // Save home path
-    document.getElementById("saveHomeBtn").addEventListener("click", async () => {
-        const path = document.getElementById("pathInput").value.trim();
-        if (!path) return;
-        const btn = document.getElementById("saveHomeBtn");
-        btn.textContent = "⏳";
-        try {
-            const resp = await fetch("/api/home", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ home: path }),
-            });
-            const data = await resp.json();
-            if (data.error) {
-                log("[错误] " + data.error);
-                btn.textContent = "💾";
-            } else {
-                log("默认目录已保存: " + data.home);
-                btn.textContent = "✓";
-                setTimeout(() => { btn.textContent = "💾"; }, 1500);
-            }
-        } catch (e) {
-            log("[错误] 保存失败: " + e.message);
-            btn.textContent = "💾";
-        }
+    // Root navigation
+    document.getElementById("rootBtn").addEventListener("click", () => {
+        navigateTo(rootPath);
     });
 
     // Scan
@@ -1759,6 +1751,21 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("extractBtn").addEventListener("click", doExtract);
     document.getElementById("zip2pdfBtn").addEventListener("click", doZip2pdf);
     document.getElementById("cleanBtn").addEventListener("click", doClean);
+
+    // Open folder in system file manager
+    document.getElementById("openFolderBtn").addEventListener("click", async () => {
+        try {
+            const resp = await fetch("/api/open-folder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ folder: currentPath }),
+            });
+            const data = await resp.json();
+            if (data.output) log(data.output);
+        } catch (e) {
+            log(`[错误] 打开目录失败: ${e}`);
+        }
+    });
 
     // Clear log
     document.getElementById("clearLogBtn").addEventListener("click", clearLog);

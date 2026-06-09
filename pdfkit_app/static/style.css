@@ -263,6 +263,10 @@ header .subtitle {
     border-radius: var(--radius-sm);
 }
 
+.path-bar .root-btn {
+    flex: 1;
+}
+
 .breadcrumb {
     padding: 0 14px 8px;
     font-size: 11px;
@@ -374,7 +378,7 @@ header .subtitle {
     padding: 10px 10px;
     border-top: 1px solid var(--border-light);
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 6px;
 }
 
@@ -394,17 +398,19 @@ header .subtitle {
 
 /* --- Card View --- */
 .file-tree.card-view {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     padding: 0 8px 8px;
-    align-content: start;
     align-items: start;
+    align-content: flex-start;
 }
 
 .file-tree.card-view .card-item {
     display: flex;
     flex-direction: column;
+    flex: 0 0 calc((100% - 8px) / 2);
+    min-width: 0;
     border-radius: var(--radius-sm);
     cursor: pointer;
     overflow: hidden;
@@ -489,7 +495,7 @@ header .subtitle {
 }
 
 .file-tree.card-view .card-item.parent-dir {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
     flex-direction: row;
     align-items: center;
     padding: 6px 10px;
@@ -516,7 +522,7 @@ header .subtitle {
 }
 
 .file-tree.card-view .card-dir {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
     flex-direction: row;
     align-items: center;
     padding: 6px 10px;

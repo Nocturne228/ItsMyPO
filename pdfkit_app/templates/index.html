@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>PDF 处理平台</title>
-    <link rel="stylesheet" href="/static/style.css?v=8">
+    <link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
     <header>
@@ -25,7 +25,7 @@
 
     <div class="main-layout">
         <!-- 左侧：目录浏览器 -->
-        <aside class="sidebar">
+        <aside class="sidebar" data-root="{{ home }}">
             <div class="sidebar-header">
                 <h2>目录浏览</h2>
                 <button id="viewToggleBtn" class="view-toggle-btn" title="切换卡片视图">
@@ -33,9 +33,7 @@
                 </button>
             </div>
             <div class="path-bar">
-                <input type="text" id="pathInput" placeholder="输入路径后回车..." value="{{ home }}">
-                <button id="goBtn" class="btn btn-sm" title="前往">Go</button>
-                <button id="saveHomeBtn" class="btn btn-sm" title="保存为默认目录">💾</button>
+                <button id="rootBtn" class="btn btn-sm root-btn" title="返回操作根目录">打开根目录</button>
             </div>
             <div id="breadcrumb" class="breadcrumb"></div>
             <div id="fileTree" class="file-tree">
@@ -44,6 +42,7 @@
             <div class="sidebar-footer">
                 <button id="scanBtn" class="btn btn-sm">扫描 PDF / ZIP</button>
                 <button id="refreshBtn" class="btn btn-sm">刷新目录</button>
+                <button id="openFolderBtn" class="btn btn-sm" title="用系统文件管理器打开当前目录">打开目录</button>
             </div>
         </aside>
 
@@ -455,6 +454,6 @@
         </main>
     </div>
 
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/app.js?v=8"></script>
 </body>
 </html>
