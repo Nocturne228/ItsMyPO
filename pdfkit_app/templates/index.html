@@ -33,7 +33,12 @@
                 </button>
             </div>
             <div class="path-bar">
-                <button id="rootBtn" class="btn btn-sm root-btn" title="返回操作根目录">打开根目录</button>
+                <button id="rootBtn" class="btn btn-sm root-btn" title="返回操作根目录">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 7h2v7h4v-4h2v4h4V7h2L8 1z"/></svg>
+                </button>
+                <button id="openFolderBtn" class="btn btn-sm" title="用系统文件管理器打开当前目录">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h3.879a1.5 1.5 0 0 1 1.06.44L9 4H13.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>
+                </button>
             </div>
             <div id="breadcrumb" class="breadcrumb"></div>
             <div id="fileTree" class="file-tree">
@@ -42,7 +47,6 @@
             <div class="sidebar-footer">
                 <button id="scanBtn" class="btn btn-sm">扫描 PDF / ZIP</button>
                 <button id="refreshBtn" class="btn btn-sm">刷新目录</button>
-                <button id="openFolderBtn" class="btn btn-sm" title="用系统文件管理器打开当前目录">打开目录</button>
             </div>
         </aside>
 

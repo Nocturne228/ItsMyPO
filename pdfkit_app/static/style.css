@@ -258,13 +258,14 @@ header .subtitle {
 
 .path-bar .btn-sm {
     flex-shrink: 0;
-    padding: 8px 12px;
+    padding: 6px;
     font-size: 11.5px;
     border-radius: var(--radius-sm);
+    line-height: 1;
 }
 
 .path-bar .root-btn {
-    flex: 1;
+    flex: 0;
 }
 
 .breadcrumb {
@@ -378,7 +379,7 @@ header .subtitle {
     padding: 10px 10px;
     border-top: 1px solid var(--border-light);
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
 }
 
