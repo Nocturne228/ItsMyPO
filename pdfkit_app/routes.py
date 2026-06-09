@@ -40,6 +40,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = _PROJECT_ROOT / "config"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 _DEFAULT_HOME = "/tmp"
+_ENV_HOME = "PDFKIT_HOME"
+_ENV_PERSIST_HOME = "PDFKIT_PERSIST_HOME"
 
 
 def _load_config():
@@ -57,6 +59,14 @@ def _save_config(data):
 
 
 def _get_home_dir():
+    env_home = os.environ.get(_ENV_HOME)
+    if env_home:
+        p = Path(env_home).expanduser().resolve()
+        p.mkdir(parents=True, exist_ok=True)
+        if os.environ.get(_ENV_PERSIST_HOME) == "1":
+            _save_config({"home": str(p)})
+        return str(p)
+
     cfg = _load_config()
     raw = cfg.get("home", _DEFAULT_HOME)
     return str(Path(raw).expanduser().resolve())
@@ -75,7 +85,7 @@ def _ensure_default_dirs():
 
 _ensure_default_dirs()
 
-DEFAULT_ALLOWED_ROOTS = [Path(HOME_DIR)]
+DEFAULT_ALLOWED_ROOTS = [Path(HOME_DIR), _PROJECT_ROOT]
 ALLOWED_ROOTS = [
     Path(p).expanduser().resolve()
     for p in os.environ.get("PDFKIT_ALLOWED_ROOTS", os.pathsep.join(str(p) for p in DEFAULT_ALLOWED_ROOTS)).split(os.pathsep)
@@ -286,29 +296,8 @@ def scan():
     return jsonify({"path": str(p), "pdfs": pdfs, "zips": zips})
 
 
-@api_bp.route("/home", methods=["GET", "POST"])
+@api_bp.route("/home", methods=["GET"])
 def home():
-    if request.method == "POST":
-        data = request.get_json() or {}
-        new_home = data.get("home", "").strip()
-        if not new_home:
-            return jsonify({"error": "路径不能为空"}), 400
-        p = Path(new_home).expanduser().resolve()
-        try:
-            p.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            return jsonify({"error": f"无法创建目录: {p}"}), 400
-        _save_config({"home": str(p)})
-        global HOME_DIR, DEFAULT_ALLOWED_ROOTS, ALLOWED_ROOTS
-        HOME_DIR = str(p)
-        DEFAULT_ALLOWED_ROOTS = [Path(HOME_DIR)]
-        ALLOWED_ROOTS = [
-            Path(p).expanduser().resolve()
-            for p in os.environ.get("PDFKIT_ALLOWED_ROOTS", os.pathsep.join(str(p) for p in DEFAULT_ALLOWED_ROOTS)).split(os.pathsep)
-            if p
-        ]
-        _ensure_default_dirs()
-        return jsonify({"home": HOME_DIR})
     return jsonify({"home": HOME_DIR})
 
 
