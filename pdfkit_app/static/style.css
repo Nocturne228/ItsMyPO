@@ -185,7 +185,7 @@ header .subtitle {
 }
 
 .sidebar.card-mode {
-    width: 380px;
+    width: 300px;
 }
 
 .sidebar-header {
@@ -399,18 +399,19 @@ header .subtitle {
 
 /* --- Card View --- */
 .file-tree.card-view {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    columns: 2;
+    column-gap: 8px;
     padding: 0 8px 8px;
-    align-items: start;
-    align-content: flex-start;
+}
+
+.file-tree.card-view > * {
+    break-inside: avoid;
+    margin-bottom: 8px;
 }
 
 .file-tree.card-view .card-item {
     display: flex;
     flex-direction: column;
-    flex: 0 0 calc((100% - 8px) / 2);
     min-width: 0;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -496,7 +497,6 @@ header .subtitle {
 }
 
 .file-tree.card-view .card-item.parent-dir {
-    flex-basis: 100%;
     flex-direction: row;
     align-items: center;
     padding: 6px 10px;
@@ -523,7 +523,6 @@ header .subtitle {
 }
 
 .file-tree.card-view .card-dir {
-    flex-basis: 100%;
     flex-direction: row;
     align-items: center;
     padding: 6px 10px;
