@@ -36,7 +36,33 @@ from pdfkit_core import (
 )
 from pdfkit_core.converter import resolve_dpi as converter_resolve_dpi
 
-HOME_DIR = str(Path("/Users/nocturne/Downloads/tmp").expanduser().resolve())
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_DIR = _PROJECT_ROOT / "config"
+CONFIG_FILE = CONFIG_DIR / "settings.json"
+_DEFAULT_HOME = "/tmp"
+
+
+def _load_config():
+    try:
+        with open(CONFIG_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_config(data):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+
+def _get_home_dir():
+    cfg = _load_config()
+    raw = cfg.get("home", _DEFAULT_HOME)
+    return str(Path(raw).expanduser().resolve())
+
+
+HOME_DIR = _get_home_dir()
 
 
 def _ensure_default_dirs():
@@ -260,8 +286,29 @@ def scan():
     return jsonify({"path": str(p), "pdfs": pdfs, "zips": zips})
 
 
-@api_bp.route("/home", methods=["GET"])
+@api_bp.route("/home", methods=["GET", "POST"])
 def home():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        new_home = data.get("home", "").strip()
+        if not new_home:
+            return jsonify({"error": "路径不能为空"}), 400
+        p = Path(new_home).expanduser().resolve()
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return jsonify({"error": f"无法创建目录: {p}"}), 400
+        _save_config({"home": str(p)})
+        global HOME_DIR, DEFAULT_ALLOWED_ROOTS, ALLOWED_ROOTS
+        HOME_DIR = str(p)
+        DEFAULT_ALLOWED_ROOTS = [Path(HOME_DIR)]
+        ALLOWED_ROOTS = [
+            Path(p).expanduser().resolve()
+            for p in os.environ.get("PDFKIT_ALLOWED_ROOTS", os.pathsep.join(str(p) for p in DEFAULT_ALLOWED_ROOTS)).split(os.pathsep)
+            if p
+        ]
+        _ensure_default_dirs()
+        return jsonify({"home": HOME_DIR})
     return jsonify({"home": HOME_DIR})
 
 
@@ -626,3 +673,13 @@ def do_open_folder():
 
     success, output = _capture(open_folder, folder)
     return jsonify({"success": success, "output": output})
+
+
+@api_bp.route("/shutdown", methods=["POST"])
+def shutdown():
+    def do_shutdown():
+        os._exit(0)
+
+    import threading
+    threading.Timer(0.5, do_shutdown).start()
+    return jsonify({"success": True, "message": "服务正在关闭..."})

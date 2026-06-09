@@ -1,4 +1,21 @@
 // =====================================================
+// Global Error Handling
+// =====================================================
+window.onerror = function (msg, url, line, col, error) {
+    console.error("[JS Error]", msg, "at", url + ":" + line + ":" + col, error);
+    const el = document.getElementById("logOutput");
+    if (el) {
+        const div = document.createElement("div");
+        div.className = "log-line log-line-error";
+        div.innerHTML = '<span class="log-icon">!</span><span class="log-message">[JS Error] ' + msg + ' (line ' + line + ')</span>';
+        el.appendChild(div);
+    }
+};
+window.addEventListener("unhandledrejection", function (e) {
+    console.error("[Unhandled Rejection]", e.reason);
+});
+
+// =====================================================
 // State
 // =====================================================
 let currentPath = "";
@@ -26,6 +43,8 @@ let imageCropState = {
 let imageResizeOriginalWidth = 0;
 let imageResizeOriginalHeight = 0;
 let imageResizeLockRatio = false;
+let viewMode = "list";
+let lastBrowseData = null;
 
 // =====================================================
 // Helpers
@@ -223,16 +242,33 @@ function switchToTab(tabName) {
     if (tabBtn) tabBtn.classList.add("active");
     const panel = pdfPage.querySelector("#panel-" + tabName);
     if (panel) panel.classList.add("active");
+
+    document.querySelector(".content").classList.toggle("hide-log", tabName === "preview");
 }
 
 function switchMainPage(pageName) {
-    document.querySelectorAll(".page-switch").forEach((button) => {
-        button.classList.toggle("active", button.dataset.page === pageName);
+    document.querySelectorAll(".mode-opt").forEach((opt) => {
+        opt.classList.toggle("active", opt.dataset.page === pageName);
     });
 
     document.querySelectorAll(".tool-page").forEach((page) => {
         page.classList.toggle("active", page.id === `${pageName}Page`);
     });
+
+    const subtitle = document.getElementById("subtitleText");
+    if (subtitle) {
+        subtitle.textContent = pageName === "pdf"
+            ? "缩放 · 裁剪 · 提取 · 转换"
+            : "拉伸 · 合并 · 截取 · 压缩";
+    }
+
+    const content = document.querySelector(".content");
+    if (pageName === "image") {
+        content.classList.remove("hide-log");
+    } else {
+        const activePdfTab = document.querySelector("#pdfPage .tab.active");
+        content.classList.toggle("hide-log", activePdfTab && activePdfTab.dataset.tab === "preview");
+    }
 }
 
 function switchImageTab(tabName) {
@@ -271,10 +307,10 @@ async function showPdfPreview(filePath) {
         }
 
         info.innerHTML = `
-            <span class="info-item"><span class="info-label">${escapeHtml(data.name)}</span></span>
-            <span class="info-item">页数: <span class="info-label">${data.pages}</span></span>
-            <span class="info-item">首页尺寸: <span class="info-label">${data.width_mm} x ${data.height_mm} mm</span></span>
-            <span class="info-item">大小: <span class="info-label">${formatSize(data.size)}</span></span>
+            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="info-label">${escapeHtml(data.name)}</span></span>
+            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>页数 <span class="info-label">${data.pages}</span></span>
+            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg><span class="info-label">${data.width_mm} x ${data.height_mm} mm</span></span>
+            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="info-label">${formatSize(data.size)}</span></span>
         `;
 
         frame.src = "/api/pdf-file?path=" + encodeURIComponent(filePath);
@@ -1183,10 +1219,12 @@ async function doImageCompress() {
 // =====================================================
 
 async function navigateTo(path) {
+    console.log("[Debug] navigateTo called with path:", path);
     const treeEl = document.getElementById("fileTree");
     treeEl.innerHTML = '<div class="loading">加载中...</div>';
 
     const data = await api("browse", { path });
+    console.log("[Debug] browse API response:", data.error ? "ERROR: " + data.error : "OK, dirs=" + data.dirs.length + " files=" + data.files.length);
     if (data.error) {
         treeEl.innerHTML = `<div class="loading">${escapeHtml(data.error)}</div>`;
         return;
@@ -1203,39 +1241,89 @@ async function navigateTo(path) {
     clearImageCropTool();
     clearImageResizeInfo();
 
+    lastBrowseData = data;
+    renderFileTree(data);
+}
+
+function renderFileTree(data) {
+    console.log("[Debug] renderFileTree, viewMode:", viewMode, "dirs:", data.dirs.length, "files:", data.files.length);
+    const treeEl = document.getElementById("fileTree");
+    const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"];
+
+    treeEl.classList.toggle("card-view", viewMode === "card");
+
     let html = "";
 
-    // Parent directory link
     const parentPath = data.path.endsWith("/")
         ? data.path.slice(0, -1).split("/").slice(0, -1).join("/") || "/"
         : data.path.split("/").slice(0, -1).join("/") || "/";
 
-    if (data.path !== "/" && data.path.length > 1) {
-        html += `<div class="tree-item parent-dir" data-path="${escapeHtml(parentPath)}" data-type="dir">
-            <span class="icon">⬆</span>
-            <span class="name">..</span>
-        </div>`;
-    }
+    if (viewMode === "card") {
+        // Parent directory
+        if (data.path !== "/" && data.path.length > 1) {
+            html += `<div class="card-item parent-dir" data-path="${escapeHtml(parentPath)}" data-type="dir">
+                <div class="card-thumb"><span class="card-icon">⬆</span></div>
+                <div class="card-info"><div class="card-name">..</div></div>
+            </div>`;
+        }
 
-    // Directories
-    for (const d of data.dirs) {
-        html += `<div class="tree-item" data-path="${escapeHtml(d.path)}" data-type="dir">
-            <span class="icon">📁</span>
-            <span class="name">${escapeHtml(d.name)}</span>
-        </div>`;
-    }
+        // Directories (full-width rows)
+        for (const d of data.dirs) {
+            html += `<div class="card-item card-dir" data-path="${escapeHtml(d.path)}" data-type="dir">
+                <div class="card-thumb"><span class="card-icon">📁</span></div>
+                <div class="card-info"><div class="card-name">${escapeHtml(d.name)}</div></div>
+            </div>`;
+        }
 
-    // Files
-    for (const f of data.files) {
-        const ext = f.ext;
-        const icon = fileIcon(ext);
-        const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"];
-        const type = ext === ".pdf" ? "pdf" : ext === ".zip" ? "zip" : imageExts.includes(ext) ? "image" : "other";
-        html += `<div class="tree-item" data-path="${escapeHtml(f.path)}" data-type="${type}">
-            <span class="icon">${icon}</span>
-            <span class="name">${escapeHtml(f.name)}</span>
-            <span class="size">${formatSize(f.size)}</span>
-        </div>`;
+        // Files as cards
+        for (const f of data.files) {
+            const ext = f.ext;
+            const type = ext === ".pdf" ? "pdf" : ext === ".zip" ? "zip" : imageExts.includes(ext) ? "image" : "other";
+            let thumbHtml;
+            if (type === "pdf") {
+                thumbHtml = `<div class="card-thumb ratio-a4"><img src="/api/page-image?path=${encodeURIComponent(f.path)}&page=1&dpi=72" alt=""></div>`;
+            } else if (type === "image") {
+                thumbHtml = `<div class="card-thumb ratio-auto"><img src="/api/image-file?path=${encodeURIComponent(f.path)}" alt=""></div>`;
+            } else {
+                const icon = fileIcon(ext);
+                thumbHtml = `<div class="card-thumb ratio-square"><span class="card-icon">${icon}</span></div>`;
+            }
+            html += `<div class="card-item" data-path="${escapeHtml(f.path)}" data-type="${type}">
+                ${thumbHtml}
+                <div class="card-info">
+                    <div class="card-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
+                    <div class="card-meta">${formatSize(f.size)}</div>
+                </div>
+            </div>`;
+        }
+    } else {
+        // Parent directory link
+        if (data.path !== "/" && data.path.length > 1) {
+            html += `<div class="tree-item parent-dir" data-path="${escapeHtml(parentPath)}" data-type="dir">
+                <span class="icon">⬆</span>
+                <span class="name">..</span>
+            </div>`;
+        }
+
+        // Directories
+        for (const d of data.dirs) {
+            html += `<div class="tree-item" data-path="${escapeHtml(d.path)}" data-type="dir">
+                <span class="icon">📁</span>
+                <span class="name">${escapeHtml(d.name)}</span>
+            </div>`;
+        }
+
+        // Files
+        for (const f of data.files) {
+            const ext = f.ext;
+            const icon = fileIcon(ext);
+            const type = ext === ".pdf" ? "pdf" : ext === ".zip" ? "zip" : imageExts.includes(ext) ? "image" : "other";
+            html += `<div class="tree-item" data-path="${escapeHtml(f.path)}" data-type="${type}">
+                <span class="icon">${icon}</span>
+                <span class="name">${escapeHtml(f.name)}</span>
+                <span class="size">${formatSize(f.size)}</span>
+            </div>`;
+        }
     }
 
     if (!html) {
@@ -1244,8 +1332,10 @@ async function navigateTo(path) {
 
     treeEl.innerHTML = html;
 
+    const itemSelector = viewMode === "card" ? ".card-item" : ".tree-item";
+
     // Attach click handlers
-    treeEl.querySelectorAll(".tree-item").forEach((item) => {
+    treeEl.querySelectorAll(itemSelector).forEach((item) => {
         item.addEventListener("click", () => {
             const type = item.dataset.type;
             const path = item.dataset.path;
@@ -1253,8 +1343,7 @@ async function navigateTo(path) {
             if (type === "dir") {
                 navigateTo(path);
             } else {
-                // Select file
-                treeEl.querySelectorAll(".tree-item").forEach((i) => i.classList.remove("selected"));
+                treeEl.querySelectorAll(itemSelector).forEach((i) => i.classList.remove("selected"));
                 item.classList.add("selected");
                 selectedPath = path;
                 selectedType = type;
@@ -1277,6 +1366,16 @@ async function navigateTo(path) {
             }
         });
     });
+}
+
+function toggleViewMode() {
+    viewMode = viewMode === "list" ? "card" : "list";
+    const btn = document.getElementById("viewToggleBtn");
+    btn.classList.toggle("active", viewMode === "card");
+    document.querySelector(".sidebar").classList.toggle("card-mode", viewMode === "card");
+    if (lastBrowseData) {
+        renderFileTree(lastBrowseData);
+    }
 }
 
 function updateBreadcrumb(path) {
@@ -1496,9 +1595,14 @@ async function doClean() {
 // =====================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+    console.log("[Debug] DOMContentLoaded fired");
+
     // Initial navigation
     const homePath = document.getElementById("pathInput").value;
+    console.log("[Debug] homePath =", homePath);
+    document.querySelector(".content").classList.add("hide-log");
     navigateTo(homePath);
+    console.log("[Debug] navigateTo called");
 
     // Path input
     document.getElementById("goBtn").addEventListener("click", () => {
@@ -1508,14 +1612,44 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.key === "Enter") navigateTo(e.target.value);
     });
 
+    // Save home path
+    document.getElementById("saveHomeBtn").addEventListener("click", async () => {
+        const path = document.getElementById("pathInput").value.trim();
+        if (!path) return;
+        const btn = document.getElementById("saveHomeBtn");
+        btn.textContent = "⏳";
+        try {
+            const resp = await fetch("/api/home", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ home: path }),
+            });
+            const data = await resp.json();
+            if (data.error) {
+                log("[错误] " + data.error);
+                btn.textContent = "💾";
+            } else {
+                log("默认目录已保存: " + data.home);
+                btn.textContent = "✓";
+                setTimeout(() => { btn.textContent = "💾"; }, 1500);
+            }
+        } catch (e) {
+            log("[错误] 保存失败: " + e.message);
+            btn.textContent = "💾";
+        }
+    });
+
     // Scan
     document.getElementById("scanBtn").addEventListener("click", scanDirectory);
     document.getElementById("refreshBtn").addEventListener("click", refreshDirectory);
 
-    // Main pages
-    document.querySelectorAll(".page-switch").forEach((button) => {
-        button.addEventListener("click", () => {
-            switchMainPage(button.dataset.page);
+    // View toggle
+    document.getElementById("viewToggleBtn").addEventListener("click", toggleViewMode);
+
+    // Main pages (P brand toggle)
+    document.querySelectorAll(".mode-opt").forEach((opt) => {
+        opt.addEventListener("click", () => {
+            switchMainPage(opt.dataset.page);
         });
     });
 
@@ -1628,4 +1762,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Clear log
     document.getElementById("clearLogBtn").addEventListener("click", clearLog);
+
+    // Shutdown server
+    document.getElementById("shutdownBtn").addEventListener("click", async () => {
+        if (!confirm("确定要关闭服务吗？关闭后需要手动重启。")) return;
+        try {
+            const resp = await fetch("/api/shutdown", { method: "POST" });
+            const data = await resp.json();
+            if (data.success) {
+                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#86868b;">服务已关闭，请手动重启。</div>';
+            }
+        } catch (e) {
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#86868b;">服务已关闭。</div>';
+        }
+    });
+
+    console.log("[Debug] All event handlers bound successfully");
 });

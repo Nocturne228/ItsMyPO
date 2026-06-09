@@ -6,3 +6,4 @@ image_output/
 *.db
 .DS_Store
 /.qoder
+config/
