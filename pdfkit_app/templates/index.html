@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 处理平台</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>PDF 处理平台</h1>
+        <span class="subtitle">缩放 · 裁剪 · 提取 · 转换</span>
+        <div class="page-switcher">
+            <button class="page-switch active" data-page="pdf">PDF 处理</button>
+            <button class="page-switch" data-page="image">图片处理</button>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <!-- 左侧：目录浏览器 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>目录浏览</h2>
+            </div>
+            <div class="path-bar">
+                <input type="text" id="pathInput" placeholder="输入路径后回车..." value="{{ home }}">
+                <button id="goBtn" title="前往">Go</button>
+            </div>
+            <div id="breadcrumb" class="breadcrumb"></div>
+            <div id="fileTree" class="file-tree">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="scanBtn" class="btn btn-sm">扫描 PDF / ZIP</button>
+                <button id="refreshBtn" class="btn btn-sm">刷新目录</button>
+            </div>
+        </aside>
+
+        <!-- 右侧：功能面板 -->
+        <main class="content">
+            <!-- 当前选择信息 -->
+            <div id="selectionInfo" class="selection-info">
+                <p>请在左侧选择一个目录或文件</p>
+            </div>
+
+            <section id="pdfPage" class="tool-page active">
+                <!-- 功能标签页 -->
+                <div class="tabs">
+                    <button class="tab active" data-tab="preview">预览</button>
+                    <button class="tab" data-tab="resize">页面缩放</button>
+                    <button class="tab" data-tab="delete">页面删除</button>
+                    <button class="tab" data-tab="extract">页面提取</button>
+                    <button class="tab" data-tab="crop">框选截取</button>
+                    <button class="tab" data-tab="zip2pdf">ZIP 转 PDF</button>
+                    <button class="tab" data-tab="clean">清理</button>
+                </div>
+
+                <!-- PDF 预览 -->
+                <div class="tab-panel active" id="panel-preview">
+                <div id="previewPlaceholder" class="preview-placeholder">
+                    <p>选择左侧目录中的 PDF 文件即可预览</p>
+                </div>
+                <div id="previewContainer" class="preview-container hidden">
+                    <div class="preview-info" id="previewInfo"></div>
+                    <iframe id="previewFrame" class="preview-frame"></iframe>
+                </div>
+                </div>
+
+                <!-- 页面缩放 -->
+                <div class="tab-panel" id="panel-resize">
+                <div class="form-group">
+                    <label>目标宽度 (mm)</label>
+                    <input type="number" id="resizeWidth" value="210" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>目标高度 (mm)</label>
+                    <input type="number" id="resizeHeight" value="297" step="0.1">
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="resizeStrip">
+                        条形漫画模式（仅固定宽度，高度自适应）
+                    </label>
+                </div>
+                <button class="btn btn-primary" id="resizeBtn">执行缩放</button>
+                </div>
+
+                <!-- 页面删除 -->
+                <div class="tab-panel" id="panel-delete">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>删除模式</label>
+                        <select id="deleteMode">
+                            <option value="single">删除单页</option>
+                            <option value="range">删除前 / 后 N 页</option>
+                            <option value="range-se">删除指定页码范围</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="deleteCountGroup">
+                        <label>页码 / 页数</label>
+                        <input type="number" id="deleteCount" value="1" min="1">
+                    </div>
+                    <div class="form-group hidden" id="deleteStartGroup">
+                        <label>起始页</label>
+                        <input type="number" id="deleteStart" value="1" min="1">
+                    </div>
+                    <div class="form-group hidden" id="deleteEndGroup">
+                        <label>结束页</label>
+                        <input type="number" id="deleteEnd" value="1" min="1">
+                    </div>
+                </div>
+                <div class="form-group checkbox-group" id="deleteBackGroup">
+                    <label>
+                        <input type="checkbox" id="deleteBack">
+                        从后往前数
+                    </label>
+                </div>
+                <button class="btn btn-primary" id="deleteBtn">执行删除</button>
+                </div>
+
+                <!-- 页面提取 -->
+                <div class="tab-panel" id="panel-extract">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>提取模式</label>
+                        <select id="extractMode">
+                            <option value="png">单页 → PNG</option>
+                            <option value="pdf">页码范围 → PDF</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="extractDpiGroup">
+                        <label>DPI 模式</label>
+                        <select id="extractDpi">
+                            <option value="bw">黑白 (600 DPI)</option>
+                            <option value="color">彩色 (300 DPI)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" id="extractPageGroup">
+                        <label>页码</label>
+                        <input type="number" id="extractPage" value="1" min="1">
+                    </div>
+                    <div class="form-group hidden" id="extractStartGroup">
+                        <label>起始页</label>
+                        <input type="number" id="extractStart" value="1" min="1">
+                    </div>
+                    <div class="form-group hidden" id="extractEndGroup">
+                        <label>结束页</label>
+                        <input type="number" id="extractEnd" value="1" min="1">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="extractBtn">执行提取</button>
+                </div>
+
+                <!-- 框选截取 -->
+                <div class="tab-panel" id="panel-crop">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>页码</label>
+                        <input type="number" id="cropPage" value="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>截取比例</label>
+                        <select id="cropRatio">
+                            <option value="free">自由比例</option>
+                            <option value="1:1">1:1</option>
+                            <option value="a4p">A4 竖版</option>
+                            <option value="a4l">A4 横版</option>
+                            <option value="16:9">16:9</option>
+                            <option value="4:3">4:3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>输出 DPI</label>
+                        <input type="number" id="cropDpi" value="300" min="72" max="600" step="1">
+                    </div>
+                </div>
+                <div class="crop-actions">
+                    <button class="btn btn-primary" id="cropLoadBtn">加载页面</button>
+                    <button class="btn btn-primary" id="cropSaveBtn">保存 PNG</button>
+                    <button class="btn btn-sm" id="cropZoomOutBtn">缩小</button>
+                    <input type="range" id="cropZoom" class="crop-zoom" min="50" max="300" value="100" step="10">
+                    <button class="btn btn-sm" id="cropZoomInBtn">放大</button>
+                    <button class="btn btn-sm" id="cropZoomResetBtn">100%</button>
+                    <span id="cropZoomLabel" class="crop-zoom-label">100%</span>
+                </div>
+                <div id="cropPlaceholder" class="crop-placeholder">
+                    <p>选择一个 PDF 文件后加载页面并拖拽框选</p>
+                </div>
+                <div id="cropStageWrap" class="crop-stage-wrap hidden">
+                    <div id="cropStage" class="crop-stage">
+                        <img id="cropImage" alt="PDF 页面预览">
+                        <div id="cropBox" class="crop-box hidden">
+                            <span class="crop-handle crop-handle-nw" data-handle="nw"></span>
+                            <span class="crop-handle crop-handle-n" data-handle="n"></span>
+                            <span class="crop-handle crop-handle-ne" data-handle="ne"></span>
+                            <span class="crop-handle crop-handle-e" data-handle="e"></span>
+                            <span class="crop-handle crop-handle-se" data-handle="se"></span>
+                            <span class="crop-handle crop-handle-s" data-handle="s"></span>
+                            <span class="crop-handle crop-handle-sw" data-handle="sw"></span>
+                            <span class="crop-handle crop-handle-w" data-handle="w"></span>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- ZIP 转 PDF -->
+                <div class="tab-panel" id="panel-zip2pdf">
+                    <div class="form-group">
+                        <label>DPI 模式</label>
+                        <select id="zipDpi">
+                            <option value="bw">黑白 (600 DPI)</option>
+                            <option value="color">彩色 (300 DPI)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="zip2pdfBtn">执行转换</button>
+                </div>
+
+                <!-- 清理 -->
+                <div class="tab-panel" id="panel-clean">
+                    <div class="form-group">
+                        <label>清理类型</label>
+                        <select id="cleanType">
+                            <option value="x_backup">x_backup（缩放备份）</option>
+                            <option value="y_backup">y_backup（裁剪备份）</option>
+                            <option value="zip">ZIP 压缩文件</option>
+                            <option value="all">全部清理</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-danger" id="cleanBtn">执行清理</button>
+                </div>
+            </section>
+
+            <!-- 图片处理 -->
+            <section id="imagePage" class="tool-page">
+                <div class="tabs">
+                    <button class="tab active" data-image-tab="resize">图片拉伸</button>
+                    <button class="tab" data-image-tab="merge">图片合并</button>
+                    <button class="tab" data-image-tab="crop">图片截取</button>
+                    <button class="tab" data-image-tab="convert">格式转换</button>
+                    <button class="tab" data-image-tab="compress">大小压缩</button>
+                </div>
+
+                <div class="tab-panel active" id="image-panel-resize">
+                    <div id="imageResizeInfo" class="image-resize-info hidden">
+                        <div class="image-resize-preview-wrap">
+                            <img id="imageResizePreview" class="image-resize-preview" alt="预览">
+                        </div>
+                        <div class="image-resize-dims">
+                            原始尺寸: <span id="imageResizeOrigW">-</span> x <span id="imageResizeOrigH">-</span> px
+                        </div>
+                    </div>
+                    <div id="imageResizeNoPreview" class="image-resize-nopreview">
+                        <p>请先在左侧选择一张图片文件</p>
+                    </div>
+                    <div class="form-group">
+                        <label>目标比例预设</label>
+                        <div class="resize-preset-group">
+                            <button class="btn btn-sm resize-preset active" data-resize-preset="free">自由拉伸</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="1:1">1:1</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="4:3">4:3</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="16:9">16:9</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="3:4">3:4</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="9:16">9:16</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="a4p">A4竖</button>
+                            <button class="btn btn-sm resize-preset" data-resize-preset="a4l">A4横</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>常用倍率</label>
+                        <div class="resize-preset-group">
+                            <button class="btn btn-sm resize-scale" data-resize-scale="50">50%</button>
+                            <button class="btn btn-sm resize-scale" data-resize-scale="75">75%</button>
+                            <button class="btn btn-sm resize-scale" data-resize-scale="100">100%</button>
+                            <button class="btn btn-sm resize-scale" data-resize-scale="150">150%</button>
+                            <button class="btn btn-sm resize-scale" data-resize-scale="200">200%</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>宽度 (%)</label>
+                            <input type="number" id="imageResizeWidthPct" value="100" min="1" max="1000" step="1">
+                        </div>
+                        <div class="form-group form-group-lock">
+                            <button class="btn btn-sm lock-btn" id="imageResizeLockBtn" title="锁定 / 解锁宽高比">🔗</button>
+                        </div>
+                        <div class="form-group">
+                            <label>高度 (%)</label>
+                            <input type="number" id="imageResizeHeightPct" value="100" min="1" max="1000" step="1">
+                        </div>
+                    </div>
+                    <div class="image-resize-summary">
+                        <div>
+                            <span class="image-resize-summary-label">计算尺寸</span>
+                            <strong><span id="imageResizeCalcW">-</span> x <span id="imageResizeCalcH">-</span> px</strong>
+                        </div>
+                        <div>
+                            <span class="image-resize-summary-label">输出比例</span>
+                            <strong id="imageResizeCalcRatio">-</strong>
+                        </div>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn btn-primary" id="imageResizeBtn">保存拉伸图片</button>
+                        <button class="btn" id="imageResizeResetBtn">重置设置</button>
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="image-panel-merge">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>合并方式</label>
+                            <select id="imageMergeMode">
+                                <option value="grid">九宫格</option>
+                                <option value="vertical">上下相接长条</option>
+                                <option value="horizontal">左右拼接长条</option>
+                            </select>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="imageMergeBorder">
+                                添加边框 / 间距
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="imageMergeBtn">合并当前目录图片</button>
+                </div>
+
+                <div class="tab-panel" id="image-panel-crop">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>截取比例</label>
+                            <select id="imageCropRatio">
+                                <option value="free">自由比例</option>
+                                <option value="1:1">1:1</option>
+                                <option value="a4p">A4 竖版</option>
+                                <option value="a4l">A4 横版</option>
+                                <option value="16:9">16:9</option>
+                                <option value="4:3">4:3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="crop-actions">
+                        <button class="btn btn-primary" id="imageCropLoadBtn">加载图片</button>
+                        <button class="btn btn-primary" id="imageCropSaveBtn">保存截取 PNG</button>
+                        <button class="btn btn-sm" id="imageCropZoomOutBtn">缩小</button>
+                        <input type="range" id="imageCropZoom" class="crop-zoom" min="50" max="300" value="100" step="10">
+                        <button class="btn btn-sm" id="imageCropZoomInBtn">放大</button>
+                        <button class="btn btn-sm" id="imageCropZoomResetBtn">100%</button>
+                        <span id="imageCropZoomLabel" class="crop-zoom-label">100%</span>
+                    </div>
+                    <div id="imageCropPlaceholder" class="crop-placeholder">
+                        <p>选择一个图片文件后加载并拖拽框选</p>
+                    </div>
+                    <div id="imageCropStageWrap" class="crop-stage-wrap hidden">
+                        <div id="imageCropStage" class="crop-stage">
+                            <img id="imageCropImage" alt="图片预览">
+                            <div id="imageCropBox" class="crop-box hidden">
+                                <span class="crop-handle crop-handle-nw" data-handle="nw"></span>
+                                <span class="crop-handle crop-handle-n" data-handle="n"></span>
+                                <span class="crop-handle crop-handle-ne" data-handle="ne"></span>
+                                <span class="crop-handle crop-handle-e" data-handle="e"></span>
+                                <span class="crop-handle crop-handle-se" data-handle="se"></span>
+                                <span class="crop-handle crop-handle-s" data-handle="s"></span>
+                                <span class="crop-handle crop-handle-sw" data-handle="sw"></span>
+                                <span class="crop-handle crop-handle-w" data-handle="w"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="image-panel-convert">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>处理范围</label>
+                            <select id="imageConvertScope">
+                                <option value="selected">当前选中图片</option>
+                                <option value="all">当前目录全部图片</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>目标格式</label>
+                            <select id="imageConvertFormat">
+                                <option value="png">PNG</option>
+                                <option value="jpg">JPG</option>
+                                <option value="webp">WEBP</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="imageConvertBtn">执行格式转换</button>
+                </div>
+
+                <div class="tab-panel" id="image-panel-compress">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>处理范围</label>
+                            <select id="imageCompressScope">
+                                <option value="selected">当前选中图片</option>
+                                <option value="all">当前目录全部图片</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>质量 (1-100)</label>
+                            <input type="number" id="imageCompressQuality" value="75" min="1" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>最长边限制 (px，可留空)</label>
+                            <input type="number" id="imageCompressMaxSide" min="1" placeholder="不缩放">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="imageCompressBtn">执行压缩</button>
+                </div>
+            </section>
+
+            <!-- 日志输出区 -->
+            <div class="log-section">
+                <div class="log-header">
+                    <h3>运行日志</h3>
+                    <button id="clearLogBtn" class="btn btn-sm">清空</button>
+                </div>
+                <div id="logOutput" class="log-output">
+                    <div class="log-line log-line-muted">
+                        <span class="log-icon">i</span>
+                        <span class="log-message">等待操作...</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
