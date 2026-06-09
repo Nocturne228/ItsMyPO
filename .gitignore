@@ -5,3 +5,4 @@ __pycache__/
 image_output/
 *.db
 .DS_Store
+/.qoder
