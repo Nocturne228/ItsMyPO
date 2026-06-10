@@ -1,6 +1,7 @@
 import io
 
 from flask import Blueprint, jsonify, request, send_file
+from pypdf import PdfReader
 
 from pixelforge_core import (
     OperationResult,
@@ -22,7 +23,7 @@ from pixelforge_core import (
     zip_file,
     zip_folder,
 )
-from pixelforge_web.security import path_error_response, resolve_allowed_path
+from pixelforge_web.route_helpers import json_error, resolve_file_arg, resolve_folder_arg
 from pixelforge_web.streaming import stream_task
 
 pdf_api_bp = Blueprint("pdf_api", __name__)
@@ -31,12 +32,9 @@ pdf_api_bp = Blueprint("pdf_api", __name__)
 @pdf_api_bp.route("/resize", methods=["POST"])
 def do_resize():
     data = request.get_json() or {}
-    if not data.get("folder"):
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(data.get("folder")))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
 
     file_arg = data.get("file")
     width = float(data.get("width", 210))
@@ -54,12 +52,9 @@ def do_resize():
 @pdf_api_bp.route("/delete", methods=["POST"])
 def do_delete():
     data = request.get_json() or {}
-    if not data.get("folder"):
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(data.get("folder")))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
 
     file_arg = data.get("file")
     single = int(data["single"]) if data.get("single") is not None else None
@@ -69,7 +64,7 @@ def do_delete():
     from_back = bool(data.get("back", False))
 
     if single is None and range_count is None and (range_start is None or range_end is None):
-        return jsonify({"error": "请指定删除模式和页码参数"}), 400
+        return json_error("请指定删除模式和页码参数")
 
     def run():
         if file_arg:
@@ -87,11 +82,10 @@ def do_extract_png():
     page = data.get("page")
 
     if not folder or not file_arg or page is None:
-        return jsonify({"error": "缺少必要参数 (folder, file, page)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, page)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
 
     dpi = resolve_dpi(data.get("dpi_mode", "bw"))
     output_arg = data.get("output")
@@ -108,11 +102,10 @@ def do_extract_pdf():
     end = data.get("end")
 
     if not folder or not file_arg or start is None or end is None:
-        return jsonify({"error": "缺少必要参数 (folder, file, start, end)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, start, end)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
 
     output_arg = data.get("output")
 
@@ -128,11 +121,10 @@ def do_crop_png():
     crop_box = data.get("crop")
 
     if not folder or not file_arg or page is None or not crop_box:
-        return jsonify({"error": "缺少必要参数 (folder, file, page, crop)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, page, crop)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
 
     dpi = int(data.get("dpi", 300))
     output_arg = data.get("output")
@@ -146,12 +138,14 @@ def pdf_metadata():
     folder = data.get("folder")
     file_arg = data.get("file")
     if not folder or not file_arg:
-        return jsonify({"error": "缺少必要参数 (folder, file)"}), 400
+        return json_error("缺少必要参数 (folder, file)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
     try:
-        folder = str(resolve_allowed_path(folder))
         return jsonify(get_pdf_metadata(folder, file_arg))
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        return json_error(str(exc))
 
 
 @pdf_api_bp.route("/pdf-metadata-save", methods=["POST"])
@@ -161,23 +155,19 @@ def save_pdf_metadata():
     file_arg = data.get("file")
     metadata = data.get("metadata")
     if not folder or not file_arg or metadata is None:
-        return jsonify({"error": "缺少必要参数 (folder, file, metadata)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, metadata)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
     return stream_task(update_pdf_metadata, folder, file_arg, metadata)
 
 
 @pdf_api_bp.route("/zip2pdf", methods=["POST"])
 def do_zip2pdf():
     data = request.get_json() or {}
-    if not data.get("folder"):
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(data.get("folder")))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
 
     file_arg = data.get("file")
     dpi = resolve_dpi(data.get("dpi_mode", "bw"))
@@ -197,13 +187,12 @@ def do_clean():
     clean_type = data.get("type", "backup_resize")
 
     if not folder:
-        return jsonify({"error": "缺少 folder 参数"}), 400
+        return json_error("缺少 folder 参数")
     if clean_type not in {"backup_resize", "backup_page_ops", "zip", "output_images", "all"}:
-        return jsonify({"error": "未知清理类型"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("未知清理类型")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
 
     def run():
         if clean_type == "backup_resize":
@@ -237,15 +226,9 @@ def do_clean():
 @pdf_api_bp.route("/pdf-file", methods=["GET"])
 def serve_pdf_file():
     path = request.args.get("path", "")
-    if not path:
-        return jsonify({"error": "缺少 path 参数"}), 400
-
-    try:
-        p = resolve_allowed_path(path)
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
-    if not p.is_file() or p.suffix.lower() != ".pdf":
-        return jsonify({"error": "文件不存在或不是 PDF"}), 404
+    p, error = resolve_file_arg(path, {".pdf"}, "PDF")
+    if error:
+        return error
 
     return send_file(str(p), mimetype="application/pdf")
 
@@ -255,15 +238,9 @@ def serve_page_image():
     path = request.args.get("path", "")
     page = request.args.get("page", "1")
     dpi = request.args.get("dpi", "150")
-    if not path:
-        return jsonify({"error": "缺少 path 参数"}), 400
-
-    try:
-        p = resolve_allowed_path(path)
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
-    if not p.is_file() or p.suffix.lower() != ".pdf":
-        return jsonify({"error": "文件不存在或不是 PDF"}), 404
+    p, error = resolve_file_arg(path, {".pdf"}, "PDF")
+    if error:
+        return error
 
     try:
         root = str(p.parent)
@@ -273,26 +250,18 @@ def serve_page_image():
         buf.seek(0)
         return send_file(buf, mimetype="image/png")
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        return json_error(str(exc))
 
 
 @pdf_api_bp.route("/pdf-info", methods=["POST"])
 def pdf_info():
     data = request.get_json() or {}
     path = data.get("path", "")
-    if not path:
-        return jsonify({"error": "缺少 path 参数"}), 400
+    p, error = resolve_file_arg(path, {".pdf"}, "PDF")
+    if error:
+        return error
 
     try:
-        p = resolve_allowed_path(path)
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
-    if not p.is_file() or p.suffix.lower() != ".pdf":
-        return jsonify({"error": "文件不存在或不是 PDF"}), 404
-
-    try:
-        from pypdf import PdfReader
-
         reader = PdfReader(str(p))
         total_pages = len(reader.pages)
         if total_pages > 0:
@@ -310,5 +279,5 @@ def pdf_info():
             "height_mm": h,
             "size": p.stat().st_size,
         })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as exc:
+        return json_error(str(exc), 500)

@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, request, send_file
 
 from pixelforge_core import (
     image_compress,
@@ -8,7 +8,7 @@ from pixelforge_core import (
     image_resize,
 )
 from pixelforge_web.config import VISIBLE_FILE_EXTENSIONS
-from pixelforge_web.security import path_error_response, resolve_allowed_path
+from pixelforge_web.route_helpers import json_error, resolve_file_arg, resolve_folder_arg
 from pixelforge_web.streaming import stream_task
 
 image_api_bp = Blueprint("image_api", __name__)
@@ -23,11 +23,10 @@ def do_image_resize():
     width = data.get("width", data.get("width_pct"))
     height = data.get("height", data.get("height_pct"))
     if not folder or not file_arg or width is None or height is None:
-        return jsonify({"error": "缺少必要参数 (folder, file, width, height)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, width, height)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
     return stream_task(
         image_resize,
         folder,
@@ -43,13 +42,9 @@ def do_image_resize():
 @image_api_bp.route("/image-merge", methods=["POST"])
 def do_image_merge():
     data = request.get_json() or {}
-    folder = data.get("folder")
-    if not folder:
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
     return stream_task(image_merge, folder, data.get("mode", "grid"), bool(data.get("border", False)))
 
 
@@ -60,24 +55,19 @@ def do_image_crop():
     file_arg = data.get("file")
     crop_box = data.get("crop")
     if not folder or not file_arg or not crop_box:
-        return jsonify({"error": "缺少必要参数 (folder, file, crop)"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+        return json_error("缺少必要参数 (folder, file, crop)")
+    folder, error = resolve_folder_arg(folder)
+    if error:
+        return error
     return stream_task(image_crop, folder, file_arg, crop_box, data.get("output"))
 
 
 @image_api_bp.route("/image-convert", methods=["POST"])
 def do_image_convert():
     data = request.get_json() or {}
-    folder = data.get("folder")
-    if not folder:
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
     file_arg = data.get("file") if data.get("scope") == "selected" else None
     return stream_task(image_convert, folder, file_arg, data.get("format", "png"))
 
@@ -85,13 +75,9 @@ def do_image_convert():
 @image_api_bp.route("/image-compress", methods=["POST"])
 def do_image_compress():
     data = request.get_json() or {}
-    folder = data.get("folder")
-    if not folder:
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
     file_arg = data.get("file") if data.get("scope") == "selected" else None
     return stream_task(
         image_compress,
@@ -107,12 +93,7 @@ def do_image_compress():
 @image_api_bp.route("/image-file", methods=["GET"])
 def serve_image_file():
     path = request.args.get("path", "")
-    if not path:
-        return jsonify({"error": "缺少 path 参数"}), 400
-    try:
-        p = resolve_allowed_path(path)
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
-    if not p.is_file() or p.suffix.lower() not in VISIBLE_FILE_EXTENSIONS - {".pdf", ".zip"}:
-        return jsonify({"error": "文件不存在或不是图片"}), 404
+    p, error = resolve_file_arg(path, VISIBLE_FILE_EXTENSIONS - {".pdf", ".zip"}, "图片")
+    if error:
+        return error
     return send_file(str(p))

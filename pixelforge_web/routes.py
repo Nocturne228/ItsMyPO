@@ -1,10 +1,12 @@
 import os
 import threading
+from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
 from pixelforge_core import EXCLUDE_DIRS, open_folder
-from pixelforge_web.config import HOME_DIR, VISIBLE_FILE_EXTENSIONS
+from pixelforge_web.config import HOME_DIR, MAX_SCAN_RESULTS, VISIBLE_FILE_EXTENSIONS
+from pixelforge_web.route_helpers import resolve_folder_arg
 from pixelforge_web.security import path_error_response, resolve_allowed_path
 from pixelforge_web.streaming import capture
 
@@ -55,23 +57,34 @@ def browse():
 @api_bp.route("/scan", methods=["POST"])
 def scan():
     data = request.get_json() or {}
-    try:
-        p = resolve_allowed_path(data.get("path", HOME_DIR))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
-
-    if not p.is_dir():
-        return jsonify({"error": "路径不存在或不是目录"}), 400
+    folder, error = resolve_folder_arg(data.get("path", HOME_DIR))
+    if error:
+        return error
+    p = Path(folder)
 
     pdfs = []
     zips = []
-    for f in sorted(p.rglob("*.pdf")):
+    truncated = False
+    for f in p.rglob("*.pdf"):
         if not any(d in f.parts for d in EXCLUDE_DIRS):
+            if len(pdfs) + len(zips) >= MAX_SCAN_RESULTS:
+                truncated = True
+                break
             pdfs.append({"name": f.name, "path": str(f), "rel": str(f.relative_to(p))})
-    for f in sorted(p.glob("*.zip")):
-        zips.append({"name": f.name, "path": str(f), "rel": str(f.relative_to(p))})
+    if not truncated:
+        for f in p.glob("*.zip"):
+            if len(pdfs) + len(zips) >= MAX_SCAN_RESULTS:
+                truncated = True
+                break
+            zips.append({"name": f.name, "path": str(f), "rel": str(f.relative_to(p))})
 
-    return jsonify({"path": str(p), "pdfs": pdfs, "zips": zips})
+    return jsonify({
+        "path": str(p),
+        "pdfs": pdfs,
+        "zips": zips,
+        "truncated": truncated,
+        "limit": MAX_SCAN_RESULTS,
+    })
 
 
 @api_bp.route("/home", methods=["GET"])
@@ -82,13 +95,9 @@ def home():
 @api_bp.route("/open-folder", methods=["POST"])
 def do_open_folder():
     data = request.get_json() or {}
-    folder = data.get("folder")
-    if not folder:
-        return jsonify({"error": "缺少 folder 参数"}), 400
-    try:
-        folder = str(resolve_allowed_path(folder))
-    except (PermissionError, OSError) as exc:
-        return path_error_response(exc)
+    folder, error = resolve_folder_arg(data.get("folder"))
+    if error:
+        return error
 
     success, output = capture(open_folder, folder)
     return jsonify({"success": success, "output": output})

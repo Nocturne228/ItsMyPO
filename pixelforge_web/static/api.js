@@ -104,12 +104,28 @@ function clearLog() {
 }
 
 async function api(endpoint, data) {
-    const resp = await fetch("/api/" + endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-    });
-    return resp.json();
+    let resp;
+    try {
+        resp = await fetch("/api/" + endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+    } catch (e) {
+        return { error: `请求失败: ${e.message}` };
+    }
+
+    let payload;
+    try {
+        payload = await resp.json();
+    } catch (_) {
+        payload = {};
+    }
+
+    if (!resp.ok) {
+        return { error: payload.error || resp.statusText || "请求失败" };
+    }
+    return payload;
 }
 
 async function apiStream(endpoint, data, onLine) {
@@ -178,4 +194,12 @@ function fileIcon(ext) {
         ".tiff": "🖼",
     };
     return icons[ext] || "📎";
+}
+
+function fileTypeFromExt(ext) {
+    const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"];
+    if (ext === ".pdf") return "pdf";
+    if (ext === ".zip") return "zip";
+    if (imageExts.includes(ext)) return "image";
+    return "other";
 }

@@ -8,8 +8,13 @@ from pixelforge_core.pdf.zip_convert import _safe_extract
 from pixelforge_core.pdf.page_ops import delete_folder
 
 if find_spec("flask"):
+    from pixelforge_web import create_app
+    from pixelforge_web.route_helpers import resolve_file_arg, resolve_folder_arg
     from pixelforge_web.streaming import StreamBuf
 else:
+    create_app = None
+    resolve_file_arg = None
+    resolve_folder_arg = None
     StreamBuf = None
 
 
@@ -42,6 +47,25 @@ class SafetyTests(unittest.TestCase):
 
         self.assertEqual(buf.q.get_nowait(), {"line": "生成进度: 10%", "replace": True})
         self.assertEqual(buf.q.get_nowait(), {"line": "PDF 生成完成", "replace": False})
+
+    @unittest.skipIf(create_app is None, "Flask is not installed")
+    def test_route_helpers_validate_allowed_paths_and_file_types(self):
+        app = create_app()
+        with app.app_context(), tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
+            root = Path(tmp)
+            image = root / "sample.png"
+            image.write_bytes(b"not a real image")
+
+            folder, folder_error = resolve_folder_arg(str(root))
+            self.assertIsNone(folder_error)
+            self.assertEqual(folder, str(root.resolve()))
+
+            file_path, file_error = resolve_file_arg(str(image), {".png"}, "图片")
+            self.assertIsNone(file_error)
+            self.assertEqual(file_path, image.resolve())
+
+            _, mismatch_error = resolve_file_arg(str(image), {".pdf"}, "PDF")
+            self.assertIsNotNone(mismatch_error)
 
 
 if __name__ == "__main__":

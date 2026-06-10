@@ -28,7 +28,6 @@ async function navigateTo(path) {
 
 function renderFileTree(data) {
     const treeEl = document.getElementById("fileTree");
-    const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"];
 
     treeEl.classList.toggle("card-view", viewMode === "card");
 
@@ -72,7 +71,7 @@ function renderFileTree(data) {
 
         for (const f of data.files) {
             const ext = f.ext;
-            const type = ext === ".pdf" ? "pdf" : ext === ".zip" ? "zip" : imageExts.includes(ext) ? "image" : "other";
+            const type = fileTypeFromExt(ext);
             let thumbHtml;
             if (type === "pdf") {
                 thumbHtml = `<div class="card-thumb ratio-a4"><img src="/api/page-image?path=${encodeURIComponent(f.path)}&page=1&dpi=72" alt=""></div>`;
@@ -108,7 +107,7 @@ function renderFileTree(data) {
         for (const f of data.files) {
             const ext = f.ext;
             const icon = fileIcon(ext);
-            const type = ext === ".pdf" ? "pdf" : ext === ".zip" ? "zip" : imageExts.includes(ext) ? "image" : "other";
+            const type = fileTypeFromExt(ext);
             html += `<div class="tree-item" data-path="${escapeHtml(f.path)}" data-type="${type}">
                 <span class="icon">${icon}</span>
                 <span class="name">${escapeHtml(f.name)}</span>
@@ -241,6 +240,9 @@ async function scanDirectory() {
     log(`\nZIP 文件: ${data.zips.length} 个`);
     for (const z of data.zips) {
         log(`  ${z.rel}`);
+    }
+    if (data.truncated) {
+        log(`\n[跳过] 扫描结果超过 ${data.limit} 条，已截断显示。`);
     }
     log("\n扫描完成。\n");
 }
