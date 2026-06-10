@@ -1,21 +1,25 @@
-from pdfkit_core.config import EXCLUDE_DIRS
-from pdfkit_core.utils import OperationResult, open_folder
-from pdfkit_core.resize import resize_folder, resize_file, clean_resize_backups
-from pdfkit_core.page_ops import (
-    delete_folder,
-    delete_file,
-    extract_png,
-    extract_pdf,
-    clean_page_backups,
-    crop_png,
-    get_pdf_metadata,
-    update_pdf_metadata,
+from pixelforge_core.config import EXCLUDE_DIRS, IMAGE_EXTENSIONS
+from pixelforge_core.utils import OperationResult, open_folder, resolve_dpi as _resolve_dpi_generic
+from pixelforge_core.pdf import (
     DPI_PRESETS,
-    resolve_dpi,
+    clean_page_backups,
+    clean_resize_backups,
+    clean_zip_files,
+    crop_png,
+    delete_file,
+    delete_folder,
+    extract_pdf,
+    extract_png,
+    get_pdf_metadata,
     render_page_image,
+    resize_file,
+    resize_folder,
+    resolve_dpi,
+    update_pdf_metadata,
+    zip_file,
+    zip_folder,
 )
-from pdfkit_core.converter import zip_folder, zip_file, clean_zip_files
-from pdfkit_core.image_ops import (
+from pixelforge_core.image import (
     image_compress,
     image_convert,
     image_crop,
@@ -25,8 +29,11 @@ from pdfkit_core.image_ops import (
 
 __all__ = [
     "EXCLUDE_DIRS",
+    "IMAGE_EXTENSIONS",
     "OperationResult",
     "open_folder",
+    "DPI_PRESETS",
+    "resolve_dpi",
     "resize_folder",
     "resize_file",
     "clean_resize_backups",
@@ -47,6 +54,4 @@ __all__ = [
     "image_crop",
     "image_convert",
     "image_compress",
-    "DPI_PRESETS",
-    "resolve_dpi",
 ]

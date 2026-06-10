@@ -1,33 +1,18 @@
 import io
-import re
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from pdfkit_core.config import IMAGE_EXTENSIONS
-from pdfkit_core.utils import OperationResult, resolve_output_path
+from pixelforge_core.config import IMAGE_EXTENSIONS
+from pixelforge_core.utils import OperationResult, available_output_path, natural_key, resolve_output_path
 
 OUTPUT_DIR_NAME = "image_output"
-
-
-def _natural_key(path):
-    return [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", path.name)]
 
 
 def _output_dir(root):
     path = Path(root).expanduser().resolve() / OUTPUT_DIR_NAME
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def _available_output_path(path):
-    if not path.exists():
-        return path
-    for i in range(2, 1000):
-        candidate = path.with_name(f"{path.stem}_{i}{path.suffix}")
-        if not candidate.exists():
-            return candidate
-    raise FileExistsError(f"无法生成唯一输出文件名: {path}")
 
 
 def _resolve_image_file(root, file_arg):
@@ -53,7 +38,7 @@ def _list_images(root):
         p for p in root.iterdir()
         if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
     ]
-    return sorted(images, key=_natural_key)
+    return sorted(images, key=natural_key)
 
 
 def _save_image(image, output_path, quality=90):
@@ -132,7 +117,7 @@ def image_resize(folder_path, file_arg, width, height, mode="pixel", keep_ratio=
             target_h = min(target_h, orig_h)
 
         resized = image.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        output = _available_output_path(
+        output = available_output_path(
             _output_dir(root) / f"{image_path.stem}_{target_w}x{target_h}{image_path.suffix}"
         )
         _save_image(resized, output)
@@ -208,7 +193,7 @@ def image_merge(folder_path, mode="grid", border=False):
     for _, img in loaded:
         img.close()
 
-    output = _available_output_path(_output_dir(root) / f"merged_{suffix}.png")
+    output = available_output_path(_output_dir(root) / f"merged_{suffix}.png")
     _save_image(canvas, output)
     print(f"已保存合并图片: {output}", flush=True)
     _print_corrupted(corrupted)
@@ -242,7 +227,7 @@ def image_crop(folder_path, file_arg, crop_box, output_arg=None):
         if output_arg:
             output = resolve_output_path(root, image_path, output_arg, f"{image_path.stem}_crop.png")
         else:
-            output = _available_output_path(_output_dir(root) / f"{image_path.stem}_crop.png")
+            output = available_output_path(_output_dir(root) / f"{image_path.stem}_crop.png")
         _save_image(cropped, output)
 
     print(f"已保存裁剪图片: {output}", flush=True)
@@ -270,7 +255,7 @@ def image_convert(folder_path, file_arg=None, target_format="png"):
             print(f"  [跳过] 损坏文件: {image_path.name} ({err})", flush=True)
             continue
         with img:
-            output = _available_output_path(_output_dir(root) / f"{image_path.stem}{ext}")
+            output = available_output_path(_output_dir(root) / f"{image_path.stem}{ext}")
             _save_image(img, output)
             result.success += 1
             result.outputs.append(output)
@@ -307,7 +292,7 @@ def image_compress(folder_path, file_arg=None, quality=75, max_side=None, target
         with img:
             if max_side and max(img.size) > max_side:
                 img.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
-            output = _available_output_path(_output_dir(root) / f"{image_path.stem}_compressed.jpg")
+            output = available_output_path(_output_dir(root) / f"{image_path.stem}_compressed.jpg")
             if target_bytes:
                 best = None
                 low, high = 1, quality

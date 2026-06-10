@@ -4,13 +4,13 @@ import zipfile
 from importlib.util import find_spec
 from pathlib import Path
 
-from pdfkit_core.converter import _safe_extract
-from pdfkit_core.page_ops import delete_folder
+from pixelforge_core.pdf.zip_convert import _safe_extract
+from pixelforge_core.pdf.page_ops import delete_folder
 
 if find_spec("flask"):
-    from pdfkit_app.routes import _StreamBuf
+    from pixelforge_web.streaming import StreamBuf
 else:
-    _StreamBuf = None
+    StreamBuf = None
 
 
 class SafetyTests(unittest.TestCase):
@@ -34,9 +34,9 @@ class SafetyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 delete_folder(tmp)
 
-    @unittest.skipIf(_StreamBuf is None, "Flask is not installed")
+    @unittest.skipIf(StreamBuf is None, "Flask is not installed")
     def test_stream_buffer_marks_carriage_return_as_replaceable(self):
-        buf = _StreamBuf()
+        buf = StreamBuf()
         buf.write("生成进度: 10%\r")
         buf.write("PDF 生成完成\n")
 

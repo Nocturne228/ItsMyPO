@@ -5,8 +5,14 @@ from pdf2image import convert_from_path
 from pypdf import PdfReader, PdfWriter
 from tqdm import tqdm
 
-from pdfkit_core.config import BACKUP_DIR_PAGE_OPS, DPI_PRESETS, EXCLUDE_DIRS
-from pdfkit_core.utils import OperationResult, resolve_dpi as resolve_dpi_value, resolve_output_path, resolve_pdf_file
+from pixelforge_core.config import BACKUP_DIR_PAGE_OPS, DPI_PRESETS, EXCLUDE_DIRS
+from pixelforge_core.utils import (
+    OperationResult,
+    available_output_path,
+    resolve_dpi as resolve_dpi_value,
+    resolve_output_path,
+    resolve_pdf_file,
+)
 
 PDF_METADATA_FIELDS = {
     "title": "/Title",
@@ -189,16 +195,6 @@ def _crop_pdf_page_to_png(pdf_path, page_number, crop_box, output_path, dpi=300)
     return output_path
 
 
-def _available_output_path(path):
-    if not path.exists():
-        return path
-    for i in range(2, 1000):
-        candidate = path.with_name(f"{path.stem}_{i}{path.suffix}")
-        if not candidate.exists():
-            return candidate
-    raise FileExistsError(f"无法生成唯一输出文件名: {path}")
-
-
 def _batch_delete(all_files, single=None, range_count=None, range_start=None, range_end=None, from_back=False):
     if single is None and range_count is None and (range_start is None or range_end is None):
         raise ValueError("请指定 -s/--single、-r/--range 或 --start/--end")
@@ -318,7 +314,7 @@ def crop_png(folder_path, file_arg, page_number, crop_box, output_arg=None, dpi=
         root, pdf_path, output_arg, f"{pdf_path.stem}_page_{page_number}_crop.png"
     )
     if not output_arg:
-        output_path = _available_output_path(output_path)
+        output_path = available_output_path(output_path)
     return _crop_pdf_page_to_png(pdf_path, page_number, crop_box, output_path, dpi=dpi)
 
 

@@ -6,16 +6,12 @@ from tempfile import TemporaryDirectory
 
 from tqdm import tqdm
 
-from pdfkit_core.config import DPI_PRESETS, IMAGE_EXTENSIONS
-from pdfkit_core.utils import OperationResult, resolve_dpi as resolve_dpi_value
+from pixelforge_core.config import DPI_PRESETS, IMAGE_EXTENSIONS
+from pixelforge_core.utils import OperationResult, natural_key, resolve_dpi as resolve_dpi_value
 
 
 def resolve_dpi(mode):
     return resolve_dpi_value(mode, DPI_PRESETS)
-
-
-def _natural_key(p: Path):
-    return [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", p.name)]
 
 
 def _should_report_progress(done, total, last_percent):
@@ -53,7 +49,7 @@ def _find_images(folder: Path):
     for f in folder.rglob("*"):
         if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
             images.append(f)
-    return sorted(images, key=_natural_key)
+    return sorted(images, key=natural_key)
 
 
 def _diagnose_image(path: Path):

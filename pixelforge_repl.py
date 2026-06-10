@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PDF 处理平台 — 交互式命令行 (REPL)
+"""PixelForge — 交互式命令行 (REPL)
 
-启动方式: python pdfkit_repl.py [--cwd /path/to/start]
+启动方式: python pixelforge_repl.py [--cwd /path/to/start]
 
 特性:
   - Tab 自动补全命令和文件路径
-  - 命令历史记录（持久化到 ~/.pdfkit_history）
+  - 命令历史记录（持久化到 ~/.pixelforge_history）
   - 内置 cd / ls / pwd 导航
   - 默认在当前目录操作
 """
@@ -20,7 +20,7 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.formatted_text import HTML
 
-from pdfkit_core import (
+from pixelforge_core import (
     DPI_PRESETS,
     EXCLUDE_DIRS,
     clean_page_backups,
@@ -38,7 +38,7 @@ from pdfkit_core import (
     zip_folder,
 )
 
-HISTORY_FILE = Path.home() / ".pdfkit_history"
+HISTORY_FILE = Path.home() / ".pixelforge_history"
 
 COMMANDS = {
     "help": "显示帮助信息",
@@ -57,7 +57,7 @@ COMMANDS = {
 }
 
 
-class PdfKitCompleter(Completer):
+class PixelForgeCompleter(Completer):
     def __init__(self, get_cwd):
         self.get_cwd = get_cwd
 
@@ -154,19 +154,19 @@ class PdfKitCompleter(Completer):
                         yield Completion(m, start_position=-len(current))
 
 
-class PdfKitREPL:
+class PixelForgeREPL:
     def __init__(self, cwd=None):
         self.cwd = Path(cwd or Path.cwd()).expanduser().resolve()
         self.session = PromptSession(
             history=FileHistory(str(HISTORY_FILE)),
-            completer=PdfKitCompleter(lambda: self.cwd),
+            completer=PixelForgeCompleter(lambda: self.cwd),
         )
 
     def prompt_text(self):
-        return HTML(f"<b>pdfkit</b> <ansiblue>{self.cwd}</ansiblue> > ")
+        return HTML(f"<b>pixelforge</b> <ansiblue>{self.cwd}</ansiblue> > ")
 
     def run(self):
-        print("PDF 处理平台 — 交互式命令行")
+        print("PixelForge — 交互式命令行")
         print("输入 help 查看可用命令，Tab 自动补全\n")
 
         while True:
@@ -433,11 +433,11 @@ class PdfKitREPL:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="PDF 处理平台 — 交互式命令行")
+    parser = argparse.ArgumentParser(description="PixelForge — 交互式命令行")
     parser.add_argument("--cwd", default=None, help="初始工作目录")
     args = parser.parse_args()
 
-    repl = PdfKitREPL(cwd=args.cwd)
+    repl = PixelForgeREPL(cwd=args.cwd)
     repl.run()
 
 

@@ -4,8 +4,8 @@ from pathlib import Path
 from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 from tqdm import tqdm
 
-from pdfkit_core.config import BACKUP_DIR_RESIZE, EXCLUDE_DIRS
-from pdfkit_core.utils import OperationResult, resolve_pdf_file
+from pixelforge_core.config import BACKUP_DIR_RESIZE, EXCLUDE_DIRS
+from pixelforge_core.utils import OperationResult, resolve_pdf_file
 
 
 def _resize_single_pdf(input_path, output_path, target_width_mm=210, target_height_mm=297, strip_mode=False):

@@ -1,3 +1,4 @@
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -69,3 +70,20 @@ def resolve_dpi(mode, presets):
     if mode not in presets:
         raise ValueError(f"未知 DPI 模式: {mode}")
     return presets[mode]
+
+
+def available_output_path(path):
+    """Return a non-existing file path by appending a numeric suffix if needed."""
+    path = Path(path)
+    if not path.exists():
+        return path
+    for i in range(2, 1000):
+        candidate = path.with_name(f"{path.stem}_{i}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+    raise FileExistsError(f"无法生成唯一输出文件名: {path}")
+
+
+def natural_key(path):
+    """Sort key that orders numeric segments naturally (page1 < page2 < page10)."""
+    return [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", Path(path).name)]

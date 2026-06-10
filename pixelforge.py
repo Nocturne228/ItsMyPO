@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PDF 处理平台 — 统一 CLI 入口
+"""PixelForge — 统一 CLI 入口
 
 子命令:
   resize       PDF 页面尺寸批量统一
@@ -14,7 +14,7 @@
 import argparse
 import sys
 
-from pdfkit_core import (
+from pixelforge_core import (
     DPI_PRESETS,
     clean_page_backups,
     clean_resize_backups,
@@ -152,8 +152,8 @@ def cmd_clean(args):
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog="pdfkit",
-        description="PDF 处理平台 — 统一命令行工具",
+        prog="PixelForge",
+        description="PixelForge — 统一命令行工具",
     )
     sub = parser.add_subparsers(dest="command", help="可用子命令")
 
