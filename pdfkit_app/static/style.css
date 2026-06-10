@@ -655,13 +655,6 @@ header .subtitle {
     display: none;
 }
 
-#panel-preview.active,
-#panel-crop.active,
-#image-panel-crop.active {
-    flex: 1;
-    min-height: 0;
-}
-
 .form-row {
     display: flex;
     gap: 16px;
@@ -1188,7 +1181,8 @@ header .subtitle {
     color: var(--text-tertiary);
 }
 
-/* --- Image Workspace --- */
+/* --- Tool Workspaces --- */
+.content.pdf-mode,
 .content.image-mode {
     overflow: hidden;
     display: grid;
@@ -1197,23 +1191,28 @@ header .subtitle {
     align-items: stretch;
 }
 
+.content.pdf-mode .selection-info,
 .content.image-mode .selection-info {
     grid-column: 1 / -1;
 }
 
+.content.pdf-mode #pdfPage.active,
 .content.image-mode #imagePage.active {
     display: contents;
 }
 
+.content.pdf-mode #pdfPage > .tabs,
 .content.image-mode #imagePage > .tabs {
     grid-column: 1 / -1;
     grid-row: 2;
 }
 
+.pdf-preview-pane,
 .image-preview-pane {
     display: none;
 }
 
+.content.pdf-mode .pdf-preview-pane,
 .content.image-mode .image-preview-pane {
     grid-column: 1;
     grid-row: 3 / 5;
@@ -1326,32 +1325,71 @@ header .subtitle {
 }
 
 .image-crop-preview .crop-box {
-    border-color: var(--primary);
-    background: rgba(0, 113, 227, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.04);
     box-shadow:
-        0 0 0 9999px rgba(255,255,255,0.58),
-        inset 0 0 0 1px rgba(255,255,255,0.72),
-        0 8px 22px rgba(0,0,0,0.12);
+        0 0 0 9999px rgba(15, 23, 42, 0.24),
+        inset 0 0 0 1px rgba(15, 23, 42, 0.10),
+        0 10px 28px rgba(15, 23, 42, 0.18);
+}
+
+.image-crop-preview .crop-handle {
+    border-color: rgba(255, 255, 255, 0.96);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 1px 5px rgba(15, 23, 42, 0.16);
 }
 
 .image-crop-preview .crop-handle-n,
+.image-crop-preview .crop-handle-s {
+    width: 36px;
+    height: 4px;
+    border: 0;
+    border-radius: 999px;
+}
+
 .image-crop-preview .crop-handle-e,
-.image-crop-preview .crop-handle-s,
 .image-crop-preview .crop-handle-w {
-    background: var(--primary);
+    width: 4px;
+    height: 36px;
+    border: 0;
+    border-radius: 999px;
 }
 
-.image-crop-preview .crop-handle-nw,
-.image-crop-preview .crop-handle-ne,
-.image-crop-preview .crop-handle-se,
+.image-crop-preview .crop-handle-nw {
+    width: 18px;
+    height: 18px;
+    border-left-width: 4px;
+    border-top-width: 4px;
+}
+
+.image-crop-preview .crop-handle-ne {
+    width: 18px;
+    height: 18px;
+    border-right-width: 4px;
+    border-top-width: 4px;
+}
+
+.image-crop-preview .crop-handle-se {
+    width: 18px;
+    height: 18px;
+    border-right-width: 4px;
+    border-bottom-width: 4px;
+}
+
 .image-crop-preview .crop-handle-sw {
-    border-color: var(--primary);
+    width: 18px;
+    height: 18px;
+    border-left-width: 4px;
+    border-bottom-width: 4px;
 }
 
+.pdf-panel-stack,
 .image-panel-stack {
     display: none;
 }
 
+.content.pdf-mode .pdf-panel-stack,
 .content.image-mode .image-panel-stack {
     grid-column: 2;
     grid-row: 3;
@@ -1361,6 +1399,7 @@ header .subtitle {
     overflow-y: auto;
 }
 
+.content.pdf-mode .pdf-tool-panel,
 .content.image-mode .image-tool-panel {
     padding: 16px;
     gap: 11px;
@@ -1459,16 +1498,17 @@ header .subtitle {
 }
 
 .image-crop-action-row {
-    margin-top: auto;
     padding-top: 8px;
 }
 
+.content.pdf-mode .log-section,
 .content.image-mode .log-section {
     grid-column: 2;
     grid-row: 4;
     min-height: 0;
 }
 
+.content.pdf-mode .log-output,
 .content.image-mode .log-output {
     padding: 10px 12px;
     font-size: 11.5px;
@@ -1672,6 +1712,15 @@ header .subtitle {
     min-height: 0;
 }
 
+.pdf-preview-pane .preview-container {
+    flex: 1;
+    padding: 14px;
+}
+
+.pdf-preview-pane .preview-placeholder {
+    background: var(--bg-input);
+}
+
 .preview-info {
     flex: 0 0 auto;
     display: flex;
@@ -1756,13 +1805,18 @@ header .subtitle {
     .content {
         padding: 16px;
     }
+    .content.pdf-mode,
     .content.image-mode {
         display: flex;
         overflow-y: auto;
     }
+    .content.pdf-mode #pdfPage.active,
     .content.image-mode #imagePage.active {
         display: flex;
     }
+    .content.pdf-mode .pdf-preview-pane,
+    .content.pdf-mode .pdf-panel-stack,
+    .content.pdf-mode .log-section,
     .content.image-mode .image-preview-pane,
     .content.image-mode .image-panel-stack,
     .content.image-mode .log-section {

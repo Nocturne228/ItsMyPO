@@ -22,15 +22,6 @@ let currentPath = "";
 let selectedPath = "";
 let selectedType = ""; // "dir", "pdf", "zip", "image", "other"
 let isRunning = false;
-let cropState = {
-    loadedPath: "",
-    box: null,
-    drag: null,
-    naturalWidth: 0,
-    naturalHeight: 0,
-    baseWidth: 0,
-    zoom: 1,
-};
 let imageCropState = {
     loadedPath: "",
     box: null,
@@ -255,7 +246,6 @@ function switchToTab(tabName) {
     const panel = pdfPage.querySelector("#panel-" + tabName);
     if (panel) panel.classList.add("active");
 
-    document.querySelector(".content").classList.toggle("hide-log", tabName === "preview" || tabName === "metadata");
     if (tabName === "metadata") {
         loadPdfMetadata();
     }
@@ -273,19 +263,18 @@ function switchMainPage(pageName) {
     const subtitle = document.getElementById("subtitleText");
     if (subtitle) {
         subtitle.textContent = pageName === "pdf"
-            ? "缩放 · 裁剪 · 提取 · 转换"
+            ? "缩放 · 删除 · 提取 · 元数据"
             : "拉伸 · 合并 · 截取 · 压缩";
     }
 
     const content = document.querySelector(".content");
+    content.classList.toggle("pdf-mode", pageName === "pdf");
     content.classList.toggle("image-mode", pageName === "image");
     if (pageName === "image") {
-        content.classList.remove("hide-log");
         switchImageTab(getActiveImageTab());
     } else {
         const activePdfTab = document.querySelector("#pdfPage .tab.active");
-        const activeTabName = activePdfTab?.dataset.tab;
-        content.classList.toggle("hide-log", activeTabName === "preview" || activeTabName === "metadata");
+        switchToTab(activePdfTab?.dataset.tab || "resize");
     }
 }
 
@@ -300,11 +289,10 @@ function switchImageTab(tabName) {
         panel.classList.toggle("active", panel.id === `image-panel-${tabName}`);
     });
 
-    document.getElementById("imagePreviewModeLabel").textContent =
-        tabName === "crop" ? "可视化截取" : "图片预览";
-    document.getElementById("imageCropPreview").classList.toggle("hidden", tabName !== "crop");
-    document.getElementById("imagePreviewFrame").classList.toggle("hidden", tabName === "crop" || !isSelectedImage());
-    document.getElementById("imagePreviewEmpty").classList.toggle("hidden", tabName === "crop" || isSelectedImage());
+    const selectedImage = isSelectedImage();
+    document.getElementById("imageCropPreview").classList.toggle("hidden", tabName !== "crop" || !selectedImage);
+    document.getElementById("imagePreviewFrame").classList.toggle("hidden", tabName === "crop" || !selectedImage);
+    document.getElementById("imagePreviewEmpty").classList.toggle("hidden", selectedImage);
     if (tabName === "crop") {
         ensureImageCropLoaded();
     }
@@ -315,6 +303,8 @@ async function showPdfPreview(filePath) {
     const container = document.getElementById("previewContainer");
     const frame = document.getElementById("previewFrame");
     const info = document.getElementById("previewInfo");
+    const name = document.getElementById("pdfPreviewName");
+    const dims = document.getElementById("pdfPreviewDims");
 
     placeholder.classList.remove("hidden");
     placeholder.innerHTML = "<p>加载中...</p>";
@@ -332,6 +322,9 @@ async function showPdfPreview(filePath) {
             placeholder.innerHTML = `<p>${escapeHtml(data.error)}</p>`;
             return;
         }
+
+        name.textContent = data.name || "已选择 PDF";
+        dims.textContent = `${data.pages} 页 · ${data.width_mm} x ${data.height_mm} mm · ${formatSize(data.size)}`;
 
         info.innerHTML = `
             <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="info-label">${escapeHtml(data.name)}</span></span>
@@ -352,11 +345,15 @@ function clearPdfPreview() {
     const placeholder = document.getElementById("previewPlaceholder");
     const container = document.getElementById("previewContainer");
     const frame = document.getElementById("previewFrame");
+    const name = document.getElementById("pdfPreviewName");
+    const dims = document.getElementById("pdfPreviewDims");
 
     placeholder.classList.remove("hidden");
     placeholder.innerHTML = "<p>选择左侧目录中的 PDF 文件即可预览</p>";
     container.classList.add("hidden");
     frame.src = "";
+    name.textContent = "未选择 PDF";
+    dims.textContent = "-";
 }
 
 function metadataEls() {
@@ -456,33 +453,8 @@ async function savePdfMetadata() {
     }
 }
 
-// =====================================================
-// Crop Tool
-// =====================================================
-
-function cropEls() {
-    return {
-        placeholder: document.getElementById("cropPlaceholder"),
-        wrap: document.getElementById("cropStageWrap"),
-        stage: document.getElementById("cropStage"),
-        img: document.getElementById("cropImage"),
-        box: document.getElementById("cropBox"),
-        zoom: document.getElementById("cropZoom"),
-        zoomLabel: document.getElementById("cropZoomLabel"),
-    };
-}
-
-function getCropRatio() {
-    return getRatioFromSelect("cropRatio");
-}
-
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
-}
-
-function getRatioFromSelect(id) {
-    const value = document.getElementById(id).value;
-    return getRatioValue(value);
 }
 
 function getRatioValue(value) {
@@ -499,385 +471,6 @@ function getRatioValue(value) {
 function getImageCropRatio() {
     const active = document.querySelector("#imageCropRatio .segmented-option.active");
     return getRatioValue(active?.dataset.cropRatio || "free");
-}
-
-function getCropStageSize() {
-    const { img } = cropEls();
-    return { width: img.clientWidth, height: img.clientHeight };
-}
-
-function applyCropZoom(nextZoom, keepSelection = true) {
-    const { stage, img, zoom, zoomLabel } = cropEls();
-    const crop = keepSelection ? getNormalizedCropBox() : null;
-    const clamped = clamp(nextZoom, 0.5, 3);
-    cropState.zoom = clamped;
-    zoom.value = String(Math.round(clamped * 100));
-    zoomLabel.textContent = `${Math.round(clamped * 100)}%`;
-
-    if (cropState.baseWidth > 0) {
-        const displayWidth = Math.round(cropState.baseWidth * clamped);
-        img.style.width = `${displayWidth}px`;
-        stage.style.width = `${displayWidth}px`;
-    }
-
-    requestAnimationFrame(() => {
-        if (crop) {
-            restoreCropBoxFromNormalized(crop);
-        } else if (cropState.loadedPath) {
-            initDefaultCropBox();
-        }
-    });
-}
-
-function setCropZoomPercent(percent) {
-    applyCropZoom(percent / 100, true);
-}
-
-function recalcCropBaseWidth() {
-    if (!cropState.loadedPath || cropState.naturalWidth <= 0) return;
-    const { wrap } = cropEls();
-    cropState.baseWidth = Math.min(cropState.naturalWidth, Math.max(320, wrap.clientWidth - 34));
-    applyCropZoom(cropState.zoom, true);
-}
-
-function constrainCropRect(rect) {
-    const { width, height } = getCropStageSize();
-    const minSize = 12;
-    let w = clamp(rect.w, minSize, width);
-    let h = clamp(rect.h, minSize, height);
-    let x = clamp(rect.x, 0, width - w);
-    let y = clamp(rect.y, 0, height - h);
-    return { x, y, w, h };
-}
-
-function setCropBox(rect) {
-    const { box } = cropEls();
-    const next = constrainCropRect(rect);
-    cropState.box = next;
-    box.style.left = `${next.x}px`;
-    box.style.top = `${next.y}px`;
-    box.style.width = `${next.w}px`;
-    box.style.height = `${next.h}px`;
-    box.classList.remove("hidden");
-}
-
-function rectFromDrag(startX, startY, currentX, currentY) {
-    const ratio = getCropRatio();
-    let dx = currentX - startX;
-    let dy = currentY - startY;
-    let w = Math.abs(dx);
-    let h = Math.abs(dy);
-
-    if (ratio && w > 0 && h > 0) {
-        if (w / h > ratio) {
-            w = h * ratio;
-        } else {
-            h = w / ratio;
-        }
-    }
-
-    return {
-        x: dx < 0 ? startX - w : startX,
-        y: dy < 0 ? startY - h : startY,
-        w,
-        h,
-    };
-}
-
-function rectFromResize(handle, startBox, point) {
-    const ratio = getCropRatio();
-    const minSize = 12;
-    const left = startBox.x;
-    const top = startBox.y;
-    const right = startBox.x + startBox.w;
-    const bottom = startBox.y + startBox.h;
-    const affectsWest = handle.includes("w");
-    const affectsEast = handle.includes("e");
-    const affectsNorth = handle.includes("n");
-    const affectsSouth = handle.includes("s");
-
-    let anchorX = affectsWest ? right : left;
-    let anchorY = affectsNorth ? bottom : top;
-    let movingX = affectsWest || affectsEast ? point.x : (left + right) / 2;
-    let movingY = affectsNorth || affectsSouth ? point.y : (top + bottom) / 2;
-    let w = affectsWest || affectsEast ? Math.max(minSize, Math.abs(movingX - anchorX)) : startBox.w;
-    let h = affectsNorth || affectsSouth ? Math.max(minSize, Math.abs(movingY - anchorY)) : startBox.h;
-
-    if (ratio) {
-        if ((affectsWest || affectsEast) && !(affectsNorth || affectsSouth)) {
-            h = w / ratio;
-        } else if ((affectsNorth || affectsSouth) && !(affectsWest || affectsEast)) {
-            w = h * ratio;
-        } else if (w / h > ratio) {
-            w = h * ratio;
-        } else {
-            h = w / ratio;
-        }
-    }
-
-    if (!affectsWest && !affectsEast) {
-        anchorX = (left + right) / 2;
-    }
-    if (!affectsNorth && !affectsSouth) {
-        anchorY = (top + bottom) / 2;
-    }
-
-    let x;
-    if (affectsWest) {
-        x = anchorX - w;
-    } else if (affectsEast) {
-        x = anchorX;
-    } else {
-        x = anchorX - w / 2;
-    }
-
-    let y;
-    if (affectsNorth) {
-        y = anchorY - h;
-    } else if (affectsSouth) {
-        y = anchorY;
-    } else {
-        y = anchorY - h / 2;
-    }
-
-    return { x, y, w, h };
-}
-
-function initDefaultCropBox() {
-    const { width, height } = getCropStageSize();
-    const ratio = getCropRatio();
-    let w = width * 0.62;
-    let h = height * 0.62;
-
-    if (ratio) {
-        if (w / h > ratio) {
-            w = h * ratio;
-        } else {
-            h = w / ratio;
-        }
-    }
-
-    setCropBox({
-        x: (width - w) / 2,
-        y: (height - h) / 2,
-        w,
-        h,
-    });
-}
-
-function applyCropRatioToCurrentBox() {
-    if (!cropState.loadedPath) return;
-    if (!cropState.box) {
-        initDefaultCropBox();
-        return;
-    }
-
-    const ratio = getCropRatio();
-    if (!ratio) return;
-
-    const { width, height } = getCropStageSize();
-    const centerX = cropState.box.x + cropState.box.w / 2;
-    const centerY = cropState.box.y + cropState.box.h / 2;
-    let w = cropState.box.w;
-    let h = cropState.box.h;
-
-    if (w / h > ratio) {
-        w = h * ratio;
-    } else {
-        h = w / ratio;
-    }
-
-    if (w > width) {
-        w = width;
-        h = w / ratio;
-    }
-    if (h > height) {
-        h = height;
-        w = h * ratio;
-    }
-
-    setCropBox({
-        x: centerX - w / 2,
-        y: centerY - h / 2,
-        w,
-        h,
-    });
-}
-
-function getStagePoint(event) {
-    const { stage } = cropEls();
-    const rect = stage.getBoundingClientRect();
-    return {
-        x: clamp(event.clientX - rect.left, 0, rect.width),
-        y: clamp(event.clientY - rect.top, 0, rect.height),
-    };
-}
-
-async function loadCropPage() {
-    if (selectedType !== "pdf") return alert("请先在左侧选择一个 PDF 文件");
-
-    const page = parseInt(document.getElementById("cropPage").value);
-    if (!page || page < 1) return alert("请输入有效页码");
-
-    const { placeholder, wrap, img, box } = cropEls();
-    placeholder.classList.remove("hidden");
-    placeholder.innerHTML = "<p>页面加载中...</p>";
-    wrap.classList.add("hidden");
-    box.classList.add("hidden");
-    cropState.loadedPath = "";
-    cropState.box = null;
-
-    img.onload = () => {
-        cropState.loadedPath = selectedPath;
-        cropState.naturalWidth = img.naturalWidth;
-        cropState.naturalHeight = img.naturalHeight;
-        placeholder.classList.add("hidden");
-        wrap.classList.remove("hidden");
-        cropState.baseWidth = Math.min(img.naturalWidth, Math.max(320, wrap.clientWidth - 34));
-        applyCropZoom(cropState.zoom, false);
-    };
-    img.onerror = () => {
-        placeholder.innerHTML = "<p>页面加载失败</p>";
-    };
-    img.src = `/api/page-image?path=${encodeURIComponent(selectedPath)}&page=${page}&dpi=140&v=${Date.now()}`;
-}
-
-function getNormalizedCropBox() {
-    if (!cropState.box) return null;
-    const { width, height } = getCropStageSize();
-    return {
-        x: cropState.box.x / width,
-        y: cropState.box.y / height,
-        width: cropState.box.w / width,
-        height: cropState.box.h / height,
-    };
-}
-
-function restoreCropBoxFromNormalized(crop) {
-    const { width, height } = getCropStageSize();
-    setCropBox({
-        x: crop.x * width,
-        y: crop.y * height,
-        w: crop.width * width,
-        h: crop.height * height,
-    });
-}
-
-async function doCropSave() {
-    if (isRunning) return;
-    if (selectedType !== "pdf") return alert("请先在左侧选择一个 PDF 文件");
-    if (!cropState.loadedPath || cropState.loadedPath !== selectedPath) {
-        return alert("请先加载当前 PDF 的页面");
-    }
-
-    const crop = getNormalizedCropBox();
-    if (!crop || crop.width <= 0 || crop.height <= 0) return alert("请先框选截取区域");
-
-    const page = parseInt(document.getElementById("cropPage").value);
-    const dpi = parseInt(document.getElementById("cropDpi").value);
-    if (!page || page < 1) return alert("请输入有效页码");
-    if (!dpi || dpi < 72 || dpi > 600) return alert("请输入 72 到 600 之间的 DPI");
-
-    setButtonsDisabled(true);
-    log("\n=== 开始框选截取 ===\n");
-
-    const success = await apiStream("crop-png", {
-        folder: currentPath,
-        file: selectedPath,
-        page,
-        dpi,
-        crop,
-    }, (line, replace) => log(line, replace));
-
-    log(success ? "\n=== 截取完成 ===\n" : "\n=== 截取失败 ===\n");
-    setButtonsDisabled(false);
-}
-
-function bindCropStageEvents() {
-    const { stage, box } = cropEls();
-
-    stage.addEventListener("mousedown", (event) => {
-        if (!cropState.loadedPath) return;
-        event.preventDefault();
-        const point = getStagePoint(event);
-        const handle = event.target.dataset.handle;
-
-        if (handle && cropState.box) {
-            cropState.drag = {
-                mode: "resize",
-                handle,
-                box: { ...cropState.box },
-            };
-        } else if (event.target === box && cropState.box) {
-            cropState.drag = {
-                mode: "move",
-                startX: point.x,
-                startY: point.y,
-                box: { ...cropState.box },
-            };
-        } else {
-            cropState.drag = {
-                mode: "draw",
-                startX: point.x,
-                startY: point.y,
-            };
-            setCropBox({ x: point.x, y: point.y, w: 12, h: 12 });
-        }
-    });
-
-    window.addEventListener("mousemove", (event) => {
-        if (!cropState.drag) return;
-        const point = getStagePoint(event);
-
-        if (cropState.drag.mode === "move") {
-            const dx = point.x - cropState.drag.startX;
-            const dy = point.y - cropState.drag.startY;
-            setCropBox({
-                x: cropState.drag.box.x + dx,
-                y: cropState.drag.box.y + dy,
-                w: cropState.drag.box.w,
-                h: cropState.drag.box.h,
-            });
-        } else if (cropState.drag.mode === "resize") {
-            setCropBox(rectFromResize(cropState.drag.handle, cropState.drag.box, point));
-        } else {
-            setCropBox(rectFromDrag(
-                cropState.drag.startX,
-                cropState.drag.startY,
-                point.x,
-                point.y,
-            ));
-        }
-    });
-
-    window.addEventListener("mouseup", () => {
-        cropState.drag = null;
-    });
-
-    window.addEventListener("resize", () => {
-        if (cropState.loadedPath) {
-            recalcCropBaseWidth();
-        }
-    });
-}
-
-function clearCropTool() {
-    const { placeholder, wrap, img, box } = cropEls();
-    placeholder.classList.remove("hidden");
-    placeholder.innerHTML = "<p>选择一个 PDF 文件后加载页面并拖拽框选</p>";
-    wrap.classList.add("hidden");
-    img.removeAttribute("src");
-    box.classList.add("hidden");
-    cropState.loadedPath = "";
-    cropState.box = null;
-    cropState.drag = null;
-    cropState.naturalWidth = 0;
-    cropState.naturalHeight = 0;
-    cropState.baseWidth = 0;
-    cropState.zoom = 1;
-    img.style.width = "";
-    document.getElementById("cropZoom").value = "100";
-    document.getElementById("cropZoomLabel").textContent = "100%";
 }
 
 // =====================================================
@@ -991,14 +584,7 @@ function getImageStagePoint(event) {
 
 function initDefaultImageCropBox() {
     const { width, height } = getImageCropStageSize();
-    const ratio = getImageCropRatio();
-    let w = width * 0.62;
-    let h = height * 0.62;
-    if (ratio) {
-        if (w / h > ratio) w = h * ratio;
-        else h = w / ratio;
-    }
-    setImageCropBox({ x: (width - w) / 2, y: (height - h) / 2, w, h });
+    setImageCropBox({ x: 0, y: 0, w: width, h: height });
 }
 
 function getNormalizedImageCropBox() {
@@ -1049,7 +635,16 @@ function ensureImageCropLoaded() {
         clearImageCropTool();
         return;
     }
-    if (imageCropState.loadedPath === selectedPath) return;
+    if (imageCropState.loadedPath === selectedPath) {
+        const { wrap } = imageCropEls();
+        imageCropState.baseWidth = Math.min(
+            imageCropState.naturalWidth,
+            Math.max(320, wrap.clientWidth - 34),
+        );
+        const keepSelection = imageCropState.box && imageCropState.box.w > 12 && imageCropState.box.h > 12;
+        applyImageCropZoom(imageCropState.zoom, keepSelection);
+        return;
+    }
 
     const { placeholder, wrap, img, box } = imageCropEls();
     placeholder.classList.remove("hidden");
@@ -1171,8 +766,10 @@ function loadImageInfoForResize() {
         document.getElementById("imageResizeOrigW").textContent = img.naturalWidth;
         document.getElementById("imageResizeOrigH").textContent = img.naturalHeight;
         document.getElementById("imageResizePreview").src = img.src;
-        document.getElementById("imagePreviewName").textContent = selectedPath.split("/").pop() || "图片预览";
-        document.getElementById("imagePreviewFrame").classList.toggle("hidden", getActiveImageTab() === "crop");
+        document.getElementById("imagePreviewName").textContent = selectedPath.split("/").pop() || "未命名图片";
+        const cropActive = getActiveImageTab() === "crop";
+        document.getElementById("imagePreviewFrame").classList.toggle("hidden", cropActive);
+        document.getElementById("imageCropPreview").classList.toggle("hidden", !cropActive);
         document.getElementById("imagePreviewEmpty").classList.add("hidden");
 
         setImageResizeMode(imageResizeMode || "pixel");
@@ -1187,8 +784,9 @@ function clearImageResizeInfo() {
     imageResizeOriginalHeight = 0;
     imageResizeLockRatio = true;
     document.getElementById("imagePreviewName").textContent = "未选择图片";
-    document.getElementById("imagePreviewEmpty").classList.toggle("hidden", getActiveImageTab() === "crop");
+    document.getElementById("imagePreviewEmpty").classList.remove("hidden");
     document.getElementById("imagePreviewFrame").classList.add("hidden");
+    document.getElementById("imageCropPreview").classList.add("hidden");
     document.getElementById("imageResizePreview").removeAttribute("src");
     document.getElementById("imageResizeOrigW").textContent = "-";
     document.getElementById("imageResizeOrigH").textContent = "-";
@@ -1392,7 +990,6 @@ async function navigateTo(path) {
     updateBreadcrumb(data.path);
     updateSelectionInfo();
     clearPdfPreview();
-    clearCropTool();
     clearMetadataTool();
     clearImageCropTool();
     clearImageResizeInfo();
@@ -1504,7 +1101,6 @@ function renderFileTree(data) {
                 selectedPath = path;
                 selectedType = type;
                 updateSelectionInfo();
-                clearCropTool();
                 if (type === "image") {
                     loadImageInfoForResize();
                     ensureImageCropLoaded();
@@ -1777,7 +1373,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initial navigation
     rootPath = document.querySelector(".sidebar").dataset.root || "";
     console.log("[Debug] rootPath =", rootPath);
-    document.querySelector(".content").classList.add("hide-log");
+    document.querySelector(".content").classList.add("pdf-mode");
     navigateTo(rootPath);
     console.log("[Debug] navigateTo called");
 
@@ -1825,24 +1421,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("extractEndGroup").classList.toggle("hidden", isPng);
     });
 
-    document.getElementById("cropLoadBtn").addEventListener("click", loadCropPage);
-    document.getElementById("cropSaveBtn").addEventListener("click", doCropSave);
-    document.getElementById("cropRatio").addEventListener("change", applyCropRatioToCurrentBox);
-    document.getElementById("cropZoom").addEventListener("input", (e) => {
-        setCropZoomPercent(parseInt(e.target.value));
-    });
-    document.getElementById("cropZoomOutBtn").addEventListener("click", () => {
-        setCropZoomPercent(Math.round(cropState.zoom * 100) - 10);
-    });
-    document.getElementById("cropZoomInBtn").addEventListener("click", () => {
-        setCropZoomPercent(Math.round(cropState.zoom * 100) + 10);
-    });
-    document.getElementById("cropZoomResetBtn").addEventListener("click", () => {
-        setCropZoomPercent(100);
-    });
     document.getElementById("metadataSaveBtn").addEventListener("click", savePdfMetadata);
     document.getElementById("metadataReloadBtn").addEventListener("click", loadPdfMetadata);
-    bindCropStageEvents();
 
     document.getElementById("imageResizeBtn").addEventListener("click", doImageResize);
     document.querySelectorAll("[data-resize-mode]").forEach(btn => {
