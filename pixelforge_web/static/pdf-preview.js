@@ -66,7 +66,6 @@ async function showPdfPreview(filePath) {
     const placeholder = document.getElementById("previewPlaceholder");
     const container = document.getElementById("previewContainer");
     const frame = document.getElementById("previewFrame");
-    const info = document.getElementById("previewInfo");
     const name = document.getElementById("pdfPreviewName");
     const dims = document.getElementById("pdfPreviewDims");
 
@@ -89,13 +88,6 @@ async function showPdfPreview(filePath) {
 
         name.textContent = data.name || t("pdfPreviewName.selected");
         dims.textContent = `${data.pages} ${t("preview.pages")} · ${data.width_mm} x ${data.height_mm} mm · ${formatSize(data.size)}`;
-
-        info.innerHTML = `
-            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="info-label">${escapeHtml(data.name)}</span></span>
-            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>页数 <span class="info-label">${data.pages}</span></span>
-            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg><span class="info-label">${data.width_mm} x ${data.height_mm} mm</span></span>
-            <span class="info-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="info-label">${formatSize(data.size)}</span></span>
-        `;
 
         frame.src = "/api/pdf-file?path=" + encodeURIComponent(filePath);
         placeholder.classList.add("hidden");

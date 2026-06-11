@@ -1852,40 +1852,6 @@ header h1 {
     background: var(--bg-input);
 }
 
-.preview-info {
-    flex: 0 0 auto;
-    display: flex;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--bg-input);
-    border-radius: var(--radius);
-    margin-bottom: 12px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.preview-info .info-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    background: var(--bg-card);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-light);
-}
-
-.preview-info .info-item + .info-item {
-    margin-left: 2px;
-}
-
-.preview-info .info-label {
-    font-weight: 600;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-}
-
 .preview-frame {
     flex: 1;
     min-height: 0;
@@ -2426,8 +2392,7 @@ header {
 
 .image-resize-thumb,
 .image-resize-summary,
-.metadata-file,
-.preview-info {
+.metadata-file {
     background: #f6f7f9;
     border-color: var(--border-light);
     border-radius: 7px;
@@ -2447,11 +2412,6 @@ header {
     background-position: center;
     background-size: 26px;
     box-shadow: none;
-}
-
-.preview-info .info-item {
-    background: #ffffff;
-    border-radius: 6px;
 }
 
 .preview-frame {
