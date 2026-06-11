@@ -47,6 +47,37 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function byId(id) {
+    return document.getElementById(id);
+}
+
+function setHidden(elOrId, hidden) {
+    const el = typeof elOrId === "string" ? byId(elOrId) : elOrId;
+    if (el) el.classList.toggle("hidden", hidden);
+}
+
+function setActiveControlOption(control, activeOption) {
+    if (!control || !activeOption) return;
+    control.querySelectorAll(".segmented-option").forEach((option) => {
+        option.classList.toggle("active", option === activeOption);
+    });
+}
+
+function optionDatasetValue(option, valueAttr = "value") {
+    return option?.dataset?.[valueAttr] || "";
+}
+
+function bindSegmentedControl(id, onChange, valueAttr = "value") {
+    const control = byId(id);
+    if (!control) return;
+    control.addEventListener("click", (event) => {
+        const option = event.target.closest(".segmented-option");
+        if (!option || !control.contains(option)) return;
+        setActiveControlOption(control, option);
+        if (onChange) onChange(optionDatasetValue(option, valueAttr), option);
+    });
+}
+
 function isRootPath(path) {
     return normalizePath(path) === normalizePath(rootPath);
 }
@@ -65,6 +96,22 @@ function getRatioValue(value) {
 function getSegmentedValue(id) {
     const el = document.querySelector("#" + id + " .segmented-option.active");
     return el ? el.dataset.value : "";
+}
+
+function setToolTab(pageEl, tabSelector, tabAttr, panelPrefix, tabName) {
+    if (!pageEl) return;
+    pageEl.querySelectorAll(".tab").forEach((tab) => {
+        tab.classList.toggle("active", tab.matches(`${tabSelector}[data-${tabAttr}="${tabName}"]`));
+    });
+    pageEl.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `${panelPrefix}${tabName}`);
+    });
+}
+
+function setImagePreviewMode(mode) {
+    setHidden("imagePreviewEmpty", mode !== "empty");
+    setHidden("imagePreviewFrame", mode !== "image");
+    setHidden("imageCropPreview", mode !== "crop");
 }
 
 // =====================================================
@@ -119,15 +166,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    document.querySelectorAll("#extractMode .segmented-option").forEach(btn => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll("#extractMode .segmented-option").forEach(o => o.classList.toggle("active", o === btn));
-            const isPng = btn.dataset.value === "png";
-            document.getElementById("extractPageGroup").classList.toggle("hidden", !isPng);
-            document.getElementById("extractDpiGroup").classList.toggle("hidden", !isPng);
-            document.getElementById("extractStartGroup").classList.toggle("hidden", isPng);
-            document.getElementById("extractEndGroup").classList.toggle("hidden", isPng);
-        });
+    bindSegmentedControl("extractMode", (mode) => {
+        const isPng = mode === "png";
+        setHidden("extractPageGroup", !isPng);
+        setHidden("extractDpiGroup", !isPng);
+        setHidden("extractStartGroup", isPng);
+        setHidden("extractEndGroup", isPng);
     });
 
     document.getElementById("metadataSaveBtn").addEventListener("click", savePdfMetadata);
@@ -166,17 +210,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById("imageMergeBtn").addEventListener("click", doImageMerge);
     document.getElementById("imageCropSaveBtn").addEventListener("click", saveImageCrop);
-    document.querySelectorAll("#imageCropRatio .segmented-option").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll("#imageCropRatio .segmented-option").forEach((option) => {
-                option.classList.toggle("active", option === btn);
-            });
-            if (imageCropState.loadedPath) {
-                const crop = getNormalizedImageCropBox();
-                if (crop) restoreImageCropBoxFromNormalized(crop);
-                else initDefaultImageCropBox();
-            }
-        });
+    bindSegmentedControl("imageCropRatio", () => {
+        if (imageCropState.loadedPath) {
+            const crop = getNormalizedImageCropBox();
+            if (crop) restoreImageCropBoxFromNormalized(crop);
+            else initDefaultImageCropBox();
+        }
     });
     document.getElementById("imageCropZoom").addEventListener("input", (e) => {
         setImageCropZoomPercent(parseInt(e.target.value));
@@ -188,15 +227,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("imageCompressBtn").addEventListener("click", doImageCompress);
     bindImageCropEvents();
 
-    document.querySelectorAll("#deleteMode .segmented-option").forEach(btn => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll("#deleteMode .segmented-option").forEach(o => o.classList.toggle("active", o === btn));
-            const mode = btn.dataset.value;
-            document.getElementById("deleteCountGroup").classList.toggle("hidden", mode === "range-se");
-            document.getElementById("deleteBackGroup").classList.toggle("hidden", mode === "range-se");
-            document.getElementById("deleteStartGroup").classList.toggle("hidden", mode !== "range-se");
-            document.getElementById("deleteEndGroup").classList.toggle("hidden", mode !== "range-se");
-        });
+    bindSegmentedControl("deleteMode", (mode) => {
+        const isRange = mode === "range-se";
+        setHidden("deleteCountGroup", isRange);
+        setHidden("deleteBackGroup", isRange);
+        setHidden("deleteStartGroup", !isRange);
+        setHidden("deleteEndGroup", !isRange);
     });
 
     document.addEventListener("click", (e) => {
@@ -207,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = control.id;
         if (id === "extractMode" || id === "deleteMode" || id === "imageCropRatio") return;
         if (btn.hasAttribute("data-resize-mode")) return;
-        control.querySelectorAll(".segmented-option").forEach(o => o.classList.toggle("active", o === btn));
+        setActiveControlOption(control, btn);
     });
 
     document.getElementById("resizeBtn").addEventListener("click", doResize);

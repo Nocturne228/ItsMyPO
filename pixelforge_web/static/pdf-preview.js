@@ -6,12 +6,7 @@ function switchToTab(tabName) {
     const pdfPage = document.getElementById("pdfPage");
     if (!pdfPage) return;
 
-    pdfPage.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-    pdfPage.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    const tabBtn = pdfPage.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (tabBtn) tabBtn.classList.add("active");
-    const panel = pdfPage.querySelector("#panel-" + tabName);
-    if (panel) panel.classList.add("active");
+    setToolTab(pdfPage, ".tab", "tab", "panel-", tabName);
 
     if (tabName === "metadata") {
         loadPdfMetadata();
@@ -46,17 +41,10 @@ function switchImageTab(tabName) {
     const imagePage = document.getElementById("imagePage");
     if (!imagePage) return;
 
-    imagePage.querySelectorAll(".tab").forEach((tab) => {
-        tab.classList.toggle("active", tab.dataset.imageTab === tabName);
-    });
-    imagePage.querySelectorAll(".tab-panel").forEach((panel) => {
-        panel.classList.toggle("active", panel.id === `image-panel-${tabName}`);
-    });
+    setToolTab(imagePage, ".tab", "image-tab", "image-panel-", tabName);
 
     const selectedImage = isSelectedImage();
-    document.getElementById("imageCropPreview").classList.toggle("hidden", tabName !== "crop" || !selectedImage);
-    document.getElementById("imagePreviewFrame").classList.toggle("hidden", tabName === "crop" || !selectedImage);
-    document.getElementById("imagePreviewEmpty").classList.toggle("hidden", selectedImage);
+    setImagePreviewMode(!selectedImage ? "empty" : tabName === "crop" ? "crop" : "image");
     if (tabName === "crop") {
         ensureImageCropLoaded();
     }
@@ -66,7 +54,6 @@ async function showPdfPreview(filePath) {
     const placeholder = document.getElementById("previewPlaceholder");
     const container = document.getElementById("previewContainer");
     const frame = document.getElementById("previewFrame");
-    const name = document.getElementById("pdfPreviewName");
     const dims = document.getElementById("pdfPreviewDims");
 
     placeholder.classList.remove("hidden");
@@ -86,7 +73,6 @@ async function showPdfPreview(filePath) {
             return;
         }
 
-        name.textContent = data.name || t("pdfPreviewName.selected");
         dims.textContent = `${data.pages} ${t("preview.pages")} · ${data.width_mm} x ${data.height_mm} mm · ${formatSize(data.size)}`;
 
         frame.src = "/api/pdf-file?path=" + encodeURIComponent(filePath);
@@ -101,14 +87,12 @@ function clearPdfPreview() {
     const placeholder = document.getElementById("previewPlaceholder");
     const container = document.getElementById("previewContainer");
     const frame = document.getElementById("previewFrame");
-    const name = document.getElementById("pdfPreviewName");
     const dims = document.getElementById("pdfPreviewDims");
 
     placeholder.classList.remove("hidden");
     placeholder.innerHTML = `<p>${t("previewPlaceholder")}</p>`;
     container.classList.add("hidden");
     frame.src = "";
-    name.textContent = t("pdfPreviewName");
     dims.textContent = "-";
 }
 

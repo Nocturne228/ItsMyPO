@@ -1390,7 +1390,8 @@ header h1 {
     font-size: 13px;
 }
 
-.image-preview-frame {
+.image-preview-frame,
+.image-crop-preview {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1412,20 +1413,6 @@ header h1 {
     box-shadow: 0 3px 18px rgba(0,0,0,0.16);
 }
 
-.image-crop-preview {
-    display: flex;
-    flex-direction: column;
-    padding: 14px;
-    overflow: hidden;
-    background:
-        linear-gradient(45deg, #f4f4f6 25%, transparent 25%),
-        linear-gradient(-45deg, #f4f4f6 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #f4f4f6 75%),
-        linear-gradient(-45deg, transparent 75%, #f4f4f6 75%);
-    background-size: 22px 22px;
-    background-position: 0 0, 0 11px, 11px -11px, -11px 0;
-}
-
 .content.image-mode .image-preview-empty.hidden,
 .content.image-mode .image-preview-frame.hidden,
 .content.image-mode .image-crop-preview.hidden {
@@ -1434,13 +1421,24 @@ header h1 {
 
 .image-crop-preview .crop-placeholder,
 .image-crop-preview .crop-stage-wrap {
-    flex: 1;
-    min-height: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+.image-crop-preview .crop-placeholder {
+    border: 0;
+    background: transparent;
 }
 
 .image-crop-preview .crop-stage-wrap {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
     background: transparent;
-    border-color: transparent;
+    text-align: center;
 }
 
 .image-crop-preview .crop-box {

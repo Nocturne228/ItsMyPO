@@ -202,11 +202,19 @@ function updateBreadcrumb(path) {
     });
 }
 
+function relativePath(fullPath) {
+    const root = normalizePath(rootPath);
+    const path = normalizePath(fullPath);
+    if (path === root) return "/";
+    if (path.startsWith(root + "/")) return path.slice(root.length + 1);
+    return path.split("/").pop() || path;
+}
+
 function updateSelectionInfo() {
     const el = document.getElementById("selectionInfo");
     if (!selectedPath) {
         el.innerHTML = `<p>${t("selectionInfo")}</p>
-            <div class="path">${escapeHtml(currentPath)}</div>`;
+            <div class="path">${escapeHtml(relativePath(currentPath))}</div>`;
         return;
     }
 
@@ -219,7 +227,7 @@ function updateSelectionInfo() {
     };
 
     el.innerHTML = `<p>${t("selectionInfo.selected")}<strong>${typeLabel[selectedType] || t("selectionInfo.other")}</strong></p>
-        <div class="path">${escapeHtml(selectedPath)}</div>`;
+        <div class="path">${escapeHtml(relativePath(selectedPath))}</div>`;
 }
 
 async function scanDirectory() {

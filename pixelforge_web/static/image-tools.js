@@ -23,6 +23,14 @@ function getImageCropStageSize() {
     return { width: img.clientWidth, height: img.clientHeight };
 }
 
+function computeImageCropBaseWidth(natW, natH, wrap) {
+    const availW = Math.max(320, wrap.clientWidth - 34);
+    const availH = Math.max(240, wrap.clientHeight - 34);
+    if (natW <= availW && natH <= availH) return natW;
+    const scale = Math.min(availW / natW, availH / natH);
+    return Math.max(320, Math.round(natW * scale));
+}
+
 function constrainImageCropRect(rect) {
     const { width, height } = getImageCropStageSize();
     const minSize = 12;
@@ -162,9 +170,10 @@ function ensureImageCropLoaded() {
     }
     if (imageCropState.loadedPath === selectedPath) {
         const { wrap } = imageCropEls();
-        imageCropState.baseWidth = Math.min(
+        imageCropState.baseWidth = computeImageCropBaseWidth(
             imageCropState.naturalWidth,
-            Math.max(320, wrap.clientWidth - 34),
+            imageCropState.naturalHeight,
+            wrap,
         );
         const keepSelection = imageCropState.box && imageCropState.box.w > 12 && imageCropState.box.h > 12;
         applyImageCropZoom(imageCropState.zoom, keepSelection);
@@ -184,7 +193,7 @@ function ensureImageCropLoaded() {
         imageCropState.naturalHeight = img.naturalHeight;
         placeholder.classList.add("hidden");
         wrap.classList.remove("hidden");
-        imageCropState.baseWidth = Math.min(img.naturalWidth, Math.max(320, wrap.clientWidth - 34));
+        imageCropState.baseWidth = computeImageCropBaseWidth(img.naturalWidth, img.naturalHeight, wrap);
         applyImageCropZoom(imageCropState.zoom, false);
     };
     img.onerror = () => {
@@ -291,11 +300,8 @@ function loadImageInfoForResize() {
         document.getElementById("imageResizeOrigW").textContent = img.naturalWidth;
         document.getElementById("imageResizeOrigH").textContent = img.naturalHeight;
         document.getElementById("imageResizePreview").src = img.src;
-        document.getElementById("imagePreviewName").textContent = selectedPath.split("/").pop() || "未命名图片";
         const cropActive = getActiveImageTab() === "crop";
-        document.getElementById("imagePreviewFrame").classList.toggle("hidden", cropActive);
-        document.getElementById("imageCropPreview").classList.toggle("hidden", !cropActive);
-        document.getElementById("imagePreviewEmpty").classList.add("hidden");
+        setImagePreviewMode(cropActive ? "crop" : "image");
 
         setImageResizeMode(imageResizeMode || "pixel");
         updateResizeCalcDisplay();
@@ -308,10 +314,7 @@ function clearImageResizeInfo() {
     imageResizeOriginalWidth = 0;
     imageResizeOriginalHeight = 0;
     imageResizeLockRatio = true;
-    document.getElementById("imagePreviewName").textContent = "未选择图片";
-    document.getElementById("imagePreviewEmpty").classList.remove("hidden");
-    document.getElementById("imagePreviewFrame").classList.add("hidden");
-    document.getElementById("imageCropPreview").classList.add("hidden");
+    setImagePreviewMode("empty");
     document.getElementById("imageResizePreview").removeAttribute("src");
     document.getElementById("imageResizeOrigW").textContent = "-";
     document.getElementById("imageResizeOrigH").textContent = "-";

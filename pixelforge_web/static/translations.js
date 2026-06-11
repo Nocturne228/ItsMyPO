@@ -33,8 +33,6 @@ var T = {
         "tab.metadata": "元数据",
         "tab.zip2pdf": "ZIP 转 PDF",
         // PDF preview
-        "pdfPreviewName": "未选择 PDF",
-        "pdfPreviewName.selected": "已选择 PDF",
         "previewPlaceholder": "选择左侧目录中的 PDF 文件即可预览",
         "preview.loading": "加载中...",
         "preview.loadError": "预览加载失败:",
@@ -105,7 +103,6 @@ var T = {
         "tab.image.convert": "格式转换",
         "tab.image.compress": "大小压缩",
         // Image preview
-        "imagePreviewName": "未选择图片",
         "imagePreviewEmpty": "请先在左侧选择一张图片文件",
         "imageCropPlaceholder": "选择左侧图片后即可拖拽框选",
         // Image resize
@@ -200,8 +197,6 @@ var T = {
         "tab.extract": "Extract",
         "tab.metadata": "Metadata",
         "tab.zip2pdf": "ZIP → PDF",
-        "pdfPreviewName": "No PDF selected",
-        "pdfPreviewName.selected": "Selected PDF",
         "previewPlaceholder": "Select a PDF file on the left to preview",
         "preview.loading": "Loading...",
         "preview.loadError": "Preview failed:",
@@ -264,7 +259,6 @@ var T = {
         "tab.image.crop": "Crop",
         "tab.image.convert": "Convert",
         "tab.image.compress": "Compress",
-        "imagePreviewName": "No image selected",
         "imagePreviewEmpty": "Select an image file on the left",
         "imageCropPlaceholder": "Select an image to start cropping",
         "image-panel-resize.h3": "Image Resize",
