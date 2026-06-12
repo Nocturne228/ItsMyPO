@@ -275,6 +275,89 @@ def extract_pdf(folder_path, file_arg, start_page, end_page, output_arg=None):
     return _extract_pdf_pages_range(pdf_path, start_page, end_page, output_path)
 
 
+def _batch_extract_png(all_files, page_number, dpi=300):
+    from tqdm import tqdm
+
+    if not all_files:
+        log.info("  未找到任何 PDF 文件。")
+        return OperationResult()
+
+    all_files = sorted(all_files)
+    log.section([
+        f"模式: 提取第 {page_number} 页为 PNG",
+        f"DPI: {dpi}",
+        f"PDF 数量: {len(all_files)}",
+    ])
+
+    result = OperationResult(total=len(all_files))
+    for pdf_path in tqdm(all_files, desc="批量提取 PNG 中"):
+        try:
+            output_path = pdf_path.with_name(f"{pdf_path.stem}_page_{page_number}.png")
+            _extract_pdf_page_to_png(pdf_path, page_number, output_path, dpi=dpi)
+            result.success += 1
+            result.outputs.append(output_path)
+        except (ValueError, FileNotFoundError) as exc:
+            log.skip(f"{pdf_path.name}: {exc}")
+            result.failed += 1
+        except Exception as exc:
+            log.error(f"{pdf_path.name} 提取失败: {exc}")
+            result.failed += 1
+
+    log.report(result)
+    return result
+
+
+def _batch_extract_pdf(all_files, start_page, end_page):
+    from tqdm import tqdm
+
+    if not all_files:
+        log.info("  未找到任何 PDF 文件。")
+        return OperationResult()
+
+    all_files = sorted(all_files)
+    log.section([
+        f"模式: 提取第 {start_page} 到 {end_page} 页为新 PDF",
+        f"PDF 数量: {len(all_files)}",
+    ])
+
+    result = OperationResult(total=len(all_files))
+    for pdf_path in tqdm(all_files, desc="批量提取 PDF 中"):
+        try:
+            output_path = pdf_path.with_name(f"{pdf_path.stem}_pages_{start_page}-{end_page}.pdf")
+            _extract_pdf_pages_range(pdf_path, start_page, end_page, output_path)
+            result.success += 1
+            result.outputs.append(output_path)
+        except (ValueError, FileNotFoundError) as exc:
+            log.skip(f"{pdf_path.name}: {exc}")
+            result.failed += 1
+        except Exception as exc:
+            log.error(f"{pdf_path.name} 提取失败: {exc}")
+            result.failed += 1
+
+    log.report(result)
+    return result
+
+
+def extract_png_folder(folder_path, page_number, dpi=300):
+    root = Path(folder_path).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        raise FileNotFoundError(f"无效的文件夹路径 -> {root}")
+
+    all_files = [p for p in root.rglob("*.pdf") if not any(d in p.parts for d in EXCLUDE_DIRS)]
+    log.info(f"  扫描目录: {root}")
+    return _batch_extract_png(all_files, page_number, dpi=dpi)
+
+
+def extract_pdf_folder(folder_path, start_page, end_page):
+    root = Path(folder_path).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        raise FileNotFoundError(f"无效的文件夹路径 -> {root}")
+
+    all_files = [p for p in root.rglob("*.pdf") if not any(d in p.parts for d in EXCLUDE_DIRS)]
+    log.info(f"  扫描目录: {root}")
+    return _batch_extract_pdf(all_files, start_page, end_page)
+
+
 def get_pdf_metadata(folder_path, file_arg):
     root = Path(folder_path).expanduser().resolve()
     pdf_path = resolve_pdf_file(root, file_arg, EXCLUDE_DIRS)

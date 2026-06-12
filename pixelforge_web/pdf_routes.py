@@ -14,6 +14,8 @@ from pixelforge_core import (
     delete_folder,
     extract_pdf,
     extract_png,
+    extract_pdf_folder,
+    extract_png_folder,
     get_pdf_metadata,
     render_page_image,
     resize_file,
@@ -36,7 +38,8 @@ def do_resize():
     if error:
         return error
 
-    file_arg = data.get("file")
+    scope = data.get("scope", "folder")
+    file_arg = data.get("file") if scope == "selected" else None
     width = float(data.get("width", 210))
     height = float(data.get("height", 297))
     strip = bool(data.get("strip", False))
@@ -56,7 +59,8 @@ def do_delete():
     if error:
         return error
 
-    file_arg = data.get("file")
+    scope = data.get("scope", "folder")
+    file_arg = data.get("file") if scope == "selected" else None
     single = int(data["single"]) if data.get("single") is not None else None
     range_count = int(data["range"]) if data.get("range") is not None else None
     range_start = int(data["range_start"]) if data.get("range_start") is not None else None
@@ -78,38 +82,49 @@ def do_delete():
 def do_extract_png():
     data = request.get_json() or {}
     folder = data.get("folder")
-    file_arg = data.get("file")
+    scope = data.get("scope", "folder")
     page = data.get("page")
 
-    if not folder or not file_arg or page is None:
-        return json_error("缺少必要参数 (folder, file, page)")
+    if not folder or page is None:
+        return json_error("缺少必要参数 (folder, page)")
     folder, error = resolve_folder_arg(folder)
     if error:
         return error
 
     dpi = resolve_dpi(data.get("dpi_mode", "bw"))
-    output_arg = data.get("output")
 
-    return stream_task(extract_png, folder, file_arg, int(page), output_arg, dpi=dpi)
+    if scope == "selected":
+        file_arg = data.get("file")
+        if not file_arg:
+            return json_error("选中文件模式下需要指定 file 参数")
+        output_arg = data.get("output")
+        return stream_task(extract_png, folder, file_arg, int(page), output_arg, dpi=dpi)
+
+    return stream_task(extract_png_folder, folder, int(page), dpi=dpi)
 
 
 @pdf_api_bp.route("/extract-pdf", methods=["POST"])
 def do_extract_pdf():
     data = request.get_json() or {}
     folder = data.get("folder")
-    file_arg = data.get("file")
+    scope = data.get("scope", "folder")
     start = data.get("start")
     end = data.get("end")
 
-    if not folder or not file_arg or start is None or end is None:
-        return json_error("缺少必要参数 (folder, file, start, end)")
+    if not folder or start is None or end is None:
+        return json_error("缺少必要参数 (folder, start, end)")
     folder, error = resolve_folder_arg(folder)
     if error:
         return error
 
-    output_arg = data.get("output")
+    if scope == "selected":
+        file_arg = data.get("file")
+        if not file_arg:
+            return json_error("选中文件模式下需要指定 file 参数")
+        output_arg = data.get("output")
+        return stream_task(extract_pdf, folder, file_arg, int(start), int(end), output_arg)
 
-    return stream_task(extract_pdf, folder, file_arg, int(start), int(end), output_arg)
+    return stream_task(extract_pdf_folder, folder, int(start), int(end))
 
 
 @pdf_api_bp.route("/crop-png", methods=["POST"])
@@ -169,7 +184,8 @@ def do_zip2pdf():
     if error:
         return error
 
-    file_arg = data.get("file")
+    scope = data.get("scope", "folder")
+    file_arg = data.get("file") if scope == "selected" else None
     dpi = resolve_dpi(data.get("dpi_mode", "bw"))
 
     def run():

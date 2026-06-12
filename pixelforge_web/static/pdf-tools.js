@@ -2,19 +2,31 @@
 // PDF & ZIP Tool Actions
 // =====================================================
 
+function isSelectedPdf() {
+    return PF.selectedType === "pdf";
+}
+
+function isSelectedZip() {
+    return PF.selectedType === "zip";
+}
+
 async function doResize() {
     if (PF.isRunning) return;
     const folder = PF.currentPath;
     if (!folder) return alert(t("alert.selectDir"));
 
+    const scope = getSegmentedValue("resizeScope");
+    if (scope === "selected" && !isSelectedPdf()) return alert(t("alert.selectPdf"));
+
     const data = {
         folder,
+        scope,
         width: numberValue("resizeWidth"),
         height: numberValue("resizeHeight"),
         strip: boolValue("resizeStrip"),
     };
 
-    if (PF.selectedType === "pdf") {
+    if (scope === "selected") {
         data.file = PF.selectedPath;
     }
 
@@ -33,8 +45,11 @@ async function doDelete() {
     const folder = PF.currentPath;
     if (!folder) return alert(t("alert.selectDir"));
 
+    const scope = getSegmentedValue("deleteScope");
+    if (scope === "selected" && !isSelectedPdf()) return alert(t("alert.selectPdf"));
+
     const mode = getSegmentedValue("deleteMode");
-    const data = { folder };
+    const data = { folder, scope };
 
     if (mode === "single") {
         const count = intValue("deleteCount");
@@ -54,7 +69,7 @@ async function doDelete() {
         data.range_end = end;
     }
 
-    if (PF.selectedType === "pdf") {
+    if (scope === "selected") {
         data.file = PF.selectedPath;
     }
 
@@ -72,25 +87,25 @@ async function doExtract() {
     if (PF.isRunning) return;
     const folder = PF.currentPath;
     if (!folder) return alert(t("alert.selectDir"));
-    if (PF.selectedType !== "pdf") return alert(t("alert.selectPdf"));
+
+    const scope = getSegmentedValue("extractScope");
+    if (scope === "selected" && !isSelectedPdf()) return alert(t("alert.selectPdf"));
 
     const mode = getSegmentedValue("extractMode");
+    const payload = mode === "png"
+        ? { folder, scope, page: intValue("extractPage"), dpi_mode: getSegmentedValue("extractDpi") }
+        : { folder, scope, start: intValue("extractStart"), end: intValue("extractEnd") };
+
+    if (scope === "selected") {
+        payload.file = PF.selectedPath;
+    }
+
     await runToolAction({
         start: "开始页面提取",
         success: "提取完成",
         failure: "提取失败",
         endpoint: mode === "png" ? "extract-png" : "extract-pdf",
-        payload: mode === "png" ? {
-            folder,
-            file: PF.selectedPath,
-            page: intValue("extractPage"),
-            dpi_mode: getSegmentedValue("extractDpi"),
-        } : {
-            folder,
-            file: PF.selectedPath,
-            start: intValue("extractStart"),
-            end: intValue("extractEnd"),
-        },
+        payload,
         after: () => navigateTo(PF.currentPath),
     });
 }
@@ -100,12 +115,16 @@ async function doZip2pdf() {
     const folder = PF.currentPath;
     if (!folder) return alert(t("alert.selectDir"));
 
+    const scope = getSegmentedValue("zip2pdfScope");
+    if (scope === "selected" && !isSelectedZip()) return alert(t("alert.selectZip"));
+
     const data = {
         folder,
+        scope,
         dpi_mode: getSegmentedValue("zipDpi"),
     };
 
-    if (PF.selectedType === "zip") {
+    if (scope === "selected") {
         data.file = PF.selectedPath;
     }
 

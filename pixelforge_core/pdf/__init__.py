@@ -8,6 +8,8 @@ from pixelforge_core.pdf.page_ops import (
     delete_file,
     extract_png,
     extract_pdf,
+    extract_png_folder,
+    extract_pdf_folder,
     clean_page_backups,
     crop_png,
     get_pdf_metadata,

@@ -32,6 +32,10 @@ var T = {
         "tab.extract": "页面提取",
         "tab.metadata": "元数据",
         "tab.zip2pdf": "ZIP 转 PDF",
+        // PDF scope (shared)
+        "pdfScope.label": "处理范围",
+        "pdfScope.folder": "当前目录",
+        "pdfScope.selected": "选中文件",
         // PDF preview
         "previewPlaceholder": "选择左侧目录中的 PDF 文件即可预览",
         "preview.loading": "加载中...",
@@ -163,6 +167,7 @@ var T = {
         // Alerts
         "alert.selectDir": "请先选择一个目录",
         "alert.selectPdf": "请先在左侧选择一个 PDF 文件",
+        "alert.selectZip": "请先在左侧选择一个 ZIP 文件",
         "alert.selectImage": "请先在左侧选择一个图片文件",
         "alert.validPage": "请输入有效页码",
         "alert.validCount": "请输入有效页数",
@@ -196,6 +201,9 @@ var T = {
         "tab.extract": "Extract",
         "tab.metadata": "Metadata",
         "tab.zip2pdf": "ZIP → PDF",
+        "pdfScope.label": "Scope",
+        "pdfScope.folder": "Current Folder",
+        "pdfScope.selected": "Selected File",
         "previewPlaceholder": "Select a PDF file on the left to preview",
         "preview.loading": "Loading...",
         "preview.loadError": "Preview failed:",
@@ -310,6 +318,7 @@ var T = {
         "breadcrumb.root": "Root",
         "alert.selectDir": "Please select a directory first",
         "alert.selectPdf": "Please select a PDF file on the left",
+        "alert.selectZip": "Please select a ZIP file on the left",
         "alert.selectImage": "Please select an image file on the left",
         "alert.validPage": "Please enter a valid page number",
         "alert.validCount": "Please enter a valid page count",
